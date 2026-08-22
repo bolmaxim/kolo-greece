@@ -63,12 +63,12 @@
 - `KoloController.SetInput(float moveAxis, bool jumpPressed, bool rollHeld, bool interactPressed)`
 - `KoloController.IsGrounded`: `bool`
 
-- [ ] Write tests for acceleration toward the target horizontal speed, jump only while grounded, and roll changing the collider profile.
+- [x] Write tests for acceleration toward the target horizontal speed, jump only while grounded, and roll changing the collider profile.
 - [ ] Run the focused tests and confirm the new tests fail before implementation.
-- [ ] Implement input as an adapter so touch UI, keyboard, and gamepad can feed the same controller.
-- [ ] Implement Kolo movement with Rigidbody2D, ground detection, jump buffering, and a roll/flatten state.
+- [x] Implement input as an adapter so touch UI, keyboard, and gamepad can feed the same controller.
+- [x] Implement Kolo movement with Rigidbody2D, ground detection, jump buffering, and a roll/flatten state.
 - [ ] Run the focused tests and confirm they pass.
-- [ ] Commit with message `feat: add Kolo movement and input abstraction`.
+- [x] Commit with message `feat: add Kolo movement and input abstraction`.
 
 ---
 
