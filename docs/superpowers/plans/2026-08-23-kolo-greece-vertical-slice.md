@@ -163,13 +163,13 @@
 - `ResultPanelController.ShowResult(LevelResult result)`
 - `TouchInputView` feeds the same `PlayerInputReader` used by editor input.
 
-- [ ] Write tests for level start, one-time completion, and result data.
+- [x] Write tests for level start, one-time completion, and result data.
 - [ ] Run the focused tests and confirm failure before implementation.
-- [ ] Implement side camera follow with clamped horizontal bounds.
-- [ ] Implement level completion and a result panel showing completion, collected seeds, and optional goals.
-- [ ] Add touch-friendly controls as a thin view layer; keep gameplay independent from UI.
+- [x] Implement side camera follow with clamped horizontal bounds.
+- [x] Implement level completion and a result panel showing completion, collected seeds, and optional goals.
+- [x] Add touch-friendly controls as a thin view layer; keep gameplay independent from UI.
 - [ ] Run focused tests and the complete Unity test suite.
-- [ ] Commit with message `feat: add level flow and touch-ready UI`.
+- [x] Commit with message `feat: add level flow and touch-ready UI`.
 
 ---
 
