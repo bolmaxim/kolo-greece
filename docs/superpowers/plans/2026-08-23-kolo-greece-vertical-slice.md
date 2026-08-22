@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Primary gameplay camera is side-on; the player moves in a constrained 2.5D lane.
-- Meteora backgrounds use realistic geology, monasteries, natural lighting, cloud layers, and atmospheric perspective; Kolo and interactables remain more stylized and contrast-separated for mobile readability.
+- Approved visual target: the second Heavy-state concept. Meteora backgrounds use realistic geology, monasteries, dramatic cool-to-warm natural lighting, cloud layers, and atmospheric perspective; Kolo and interactables remain more stylized and contrast-separated for mobile readability.
 - The vertical slice uses touch-friendly input abstraction and supports keyboard/gamepad in the editor.
 - Kolo has four player actions: horizontal movement, jump, roll/flatten, and contextual interaction.
 - The first slice implements the Heavy state only; Sticky and Solid remain documented extensions.
