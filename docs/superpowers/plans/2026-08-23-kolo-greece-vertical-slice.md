@@ -113,13 +113,13 @@
 - `BreakablePlatform.Break()`
 - `HangingPlatform.MoveToTarget()`
 
-- [ ] Write tests for the pressure plate threshold, activation/deactivation, breakable platform state, and hanging platform target movement.
+- [x] Write tests for the pressure plate threshold, activation/deactivation, breakable platform state, and hanging platform target movement.
 - [ ] Run the focused tests and confirm failure before implementation.
-- [ ] Implement the pressure plate using Rigidbody2D mass and collision filtering so only sufficient weight activates it.
-- [ ] Implement the breakable platform with a deterministic broken state and disabled collision after breaking.
-- [ ] Implement the hanging platform as a simple deterministic movement state that can be triggered by the plate.
+- [x] Implement the pressure plate using Rigidbody2D mass and collision filtering so only sufficient weight activates it.
+- [x] Implement the breakable platform with a deterministic broken state and disabled collision after breaking.
+- [x] Implement the hanging platform as a simple deterministic movement state that can be triggered by the plate.
 - [ ] Run the focused tests and confirm they pass.
-- [ ] Commit with message `feat: add Meteora puzzle interactables`.
+- [x] Commit with message `feat: add Meteora puzzle interactables`.
 
 ---
 
