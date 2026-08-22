@@ -20,10 +20,12 @@ namespace Kolo.Player
         private bool rollHeld;
         private bool interactPressed;
         private bool isRolling;
+        private KoloStateModifiers stateModifiers = KoloStateModifiers.Normal;
 
         public bool IsGrounded { get; private set; }
         public bool InteractPressedThisFrame => interactPressed;
         public KoloMovementConfig Movement => movement;
+        public KoloStateModifiers StateModifiers => stateModifiers;
 
         private void Awake()
         {
@@ -40,6 +42,11 @@ namespace Kolo.Player
         public void Configure(KoloMovementConfig config)
         {
             movement = config ?? throw new System.ArgumentNullException(nameof(config));
+        }
+
+        public void SetStateModifiers(KoloStateModifiers modifiers)
+        {
+            stateModifiers = modifiers;
         }
 
         public void SetInput(float horizontalMove, bool jumpPressed, bool shouldRoll, bool shouldInteract)
@@ -61,16 +68,16 @@ namespace Kolo.Player
 
             IsGrounded = groundedOverride ?? DetectGround();
             Vector2 velocity = body.linearVelocity;
-            float targetSpeed = moveAxis * movement.MaxSpeed;
+            float targetSpeed = moveAxis * movement.MaxSpeed * stateModifiers.SpeedMultiplier;
             float rate = Mathf.Approximately(moveAxis, 0f)
-                ? movement.Deceleration
-                : movement.Acceleration;
+                ? movement.Deceleration * stateModifiers.AccelerationMultiplier
+                : movement.Acceleration * stateModifiers.AccelerationMultiplier;
 
             velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, rate * deltaTime);
 
             if (jumpBufferRemaining > 0f && IsGrounded && !isRolling)
             {
-                velocity.y = movement.JumpSpeed;
+                velocity.y = movement.JumpSpeed * stateModifiers.JumpMultiplier;
                 jumpBufferRemaining = 0f;
                 IsGrounded = false;
             }

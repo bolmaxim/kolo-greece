@@ -87,12 +87,12 @@
 - `KoloStateController.ResetState()`
 - `HeavyStateSource.ApplyTo(KoloStateController target)`
 
-- [ ] Write tests for applying Heavy, replacing a previous state, resetting to Normal, and Heavy’s gameplay modifiers.
+- [x] Write tests for applying Heavy, replacing a previous state, resetting to Normal, and Heavy’s gameplay modifiers.
 - [ ] Run the focused tests and confirm failure before implementation.
-- [ ] Implement state changes as explicit commands from environment objects.
-- [ ] Apply Heavy modifiers through configuration rather than hard-coded checks in unrelated interactables.
+- [x] Implement state changes as explicit commands from environment objects.
+- [x] Apply Heavy modifiers through configuration rather than hard-coded checks in unrelated interactables.
 - [ ] Run the focused tests and confirm they pass.
-- [ ] Commit with message `feat: add Kolo state system`.
+- [x] Commit with message `feat: add Kolo state system`.
 
 ---
 
