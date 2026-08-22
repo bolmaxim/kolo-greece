@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Primary gameplay camera is side-on; the player moves in a constrained 2.5D lane.
+- Meteora backgrounds use realistic geology, monasteries, natural lighting, cloud layers, and atmospheric perspective; Kolo and interactables remain more stylized and contrast-separated for mobile readability.
 - The vertical slice uses touch-friendly input abstraction and supports keyboard/gamepad in the editor.
 - Kolo has four player actions: horizontal movement, jump, roll/flatten, and contextual interaction.
 - The first slice implements the Heavy state only; Sticky and Solid remain documented extensions.
@@ -38,11 +39,11 @@
 - Produces a project that opens in Unity and runs the Bootstrap scene.
 - Runtime assemblies must be usable by Unity Test Framework tests.
 
-- [ ] Add Unity project metadata and package manifests for Unity 6.x, Input System, Test Framework, and URP.
-- [ ] Create the minimum scene files with a Bootstrap scene loading the Meteora slice.
-- [ ] Add assembly definition files separating runtime and tests.
-- [ ] Add a README section explaining the Unity version, opening the project, and entering Play Mode.
-- [ ] Verify the repository contains the expected Unity folders and no generated Library/Temp folders.
+- [x] Add Unity project metadata and package manifests for Unity 6.x, Input System, Test Framework, and URP.
+- [x] Create the minimum scene files with a Bootstrap scene loading the Meteora slice.
+- [x] Add assembly definition files separating runtime and tests.
+- [x] Add a README section explaining the Unity version, opening the project, and entering Play Mode.
+- [x] Verify the repository contains the expected Unity folders and no generated Library/Temp folders.
 
 ---
 
@@ -139,7 +140,7 @@
 
 - [ ] Create a greybox side-on level with start point, Heavy source, pressure plate, breakable section, hanging platform, and finish point.
 - [ ] Add camera bounds and a camera follow target.
-- [ ] Keep geometry primitive and readable: rock blocks, wooden platforms, rope markers, and clear state icons.
+- [ ] Keep gameplay collision geometry primitive and readable while the visible background uses realistic PBR rocks, monastery silhouettes, clouds, and atmospheric depth.
 - [ ] Add a finish trigger that reports successful completion to level flow.
 - [ ] Open the scene in Unity and verify the player can traverse the full route in Play Mode.
 - [ ] Commit with message `feat: build Meteora vertical slice level`.
