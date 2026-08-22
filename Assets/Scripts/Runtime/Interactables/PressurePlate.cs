@@ -19,9 +19,10 @@ namespace Kolo.Interactables
         public bool IsActive { get; private set; }
         public float CurrentWeight { get; private set; }
 
-        public void Configure(float threshold)
+        public void Configure(float threshold, params MonoBehaviour[] targets)
         {
             weightThreshold = Mathf.Max(0.01f, threshold);
+            activationTargets = targets;
             Recalculate();
         }
 

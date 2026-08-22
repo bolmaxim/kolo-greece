@@ -12,6 +12,14 @@ namespace Kolo.UI
         [SerializeField] private Text seeds;
         [SerializeField] private Text goals;
 
+        public void Configure(GameObject root, Text titleText, Text seedsText, Text goalsText)
+        {
+            panelRoot = root;
+            title = titleText;
+            seeds = seedsText;
+            goals = goalsText;
+        }
+
         public void ShowResult(LevelResult result)
         {
             if (panelRoot != null)

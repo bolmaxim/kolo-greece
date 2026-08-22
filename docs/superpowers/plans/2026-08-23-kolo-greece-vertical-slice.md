@@ -138,12 +138,12 @@
 - `MeteoraSliceBuilder.Build()`: creates or validates the test layout.
 - Scene entry point: `MeteoraSliceBuilder` or serialized scene references.
 
-- [ ] Create a greybox side-on level with start point, Heavy source, pressure plate, breakable section, hanging platform, and finish point.
-- [ ] Add camera bounds and a camera follow target.
-- [ ] Keep gameplay collision geometry primitive and readable while the visible background uses realistic PBR rocks, monastery silhouettes, clouds, and atmospheric depth.
-- [ ] Add a finish trigger that reports successful completion to level flow.
+- [x] Create a greybox side-on level with start point, Heavy source, pressure plate, breakable section, hanging platform, and finish point.
+- [x] Add camera bounds and a camera follow target.
+- [x] Keep gameplay collision geometry primitive and readable while the visible background uses realistic PBR rocks, monastery silhouettes, clouds, and atmospheric depth.
+- [x] Add a finish trigger that reports successful completion to level flow.
 - [ ] Open the scene in Unity and verify the player can traverse the full route in Play Mode.
-- [ ] Commit with message `feat: build Meteora vertical slice level`.
+- [x] Commit with message `feat: build Meteora vertical slice level`.
 
 ---
 

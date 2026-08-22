@@ -32,6 +32,11 @@ namespace Kolo.Input
             touchInteractQueued = false;
         }
 
+        public void Configure(KoloController controller)
+        {
+            target = controller;
+        }
+
         public void SetTouchMove(float axis)
         {
             touchMoveAxis = Mathf.Clamp(axis, -1f, 1f);
