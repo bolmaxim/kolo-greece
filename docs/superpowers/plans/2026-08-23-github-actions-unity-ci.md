@@ -601,14 +601,3 @@ From GitHub on the owner's account:
 5. Confirm `kolo-ios-xcode-project` contains an `.xcodeproj`.
 
 Expected: both workflow runs are green. If Unity secrets cannot yet be created, record the workflows as **configured but not operational**; do not mark this step complete.
-
-- [ ] **Step 6: Final verification commit only if generated fixes were required**
-
-If workflow runs exposed repository fixes, commit only those reviewed fixes:
-
-```bash
-git add <exact-reviewed-files>
-git commit -m "fix: make Unity CI operational"
-```
-
-If no fixes were required, do not create an empty commit.
