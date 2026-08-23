@@ -34,6 +34,8 @@
 ## Документация
 
 - [Спецификация MVP](docs/superpowers/specs/2026-08-23-kolo-greece-mvp-design.md)
+- [GitHub Actions setup](docs/ci/github-actions-setup.md)
+- [GitHub Actions Unity CI design](docs/superpowers/specs/2026-08-23-github-actions-unity-ci-design.md)
 
 ## Статус
 
