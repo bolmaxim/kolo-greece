@@ -6,7 +6,7 @@
 - Manual export of an unsigned Xcode project.
 - Downloading test reports and Xcode artifacts from GitHub Actions.
 
-An unsigned Xcode project cannot be installed on an iPhone.
+The exported Xcode project is not directly installable. With a Mac, Xcode, and a free Apple Account, you can locally sign and install it on a personal iPhone for development. Paid Apple Developer Program membership is required for TestFlight or App Store distribution.
 
 ## Required Unity secrets
 
@@ -45,4 +45,4 @@ This artifact is an unsigned Xcode project, not an IPA.
 
 ## Deferred Apple stage
 
-After joining Apple Developer and obtaining access to a Mac, add signing, IPA generation, App Store Connect upload, and TestFlight distribution as a separate protected workflow.
+After joining the paid Apple Developer Program and obtaining access to a Mac, add signing, IPA generation, App Store Connect upload, and TestFlight distribution as a separate protected workflow.

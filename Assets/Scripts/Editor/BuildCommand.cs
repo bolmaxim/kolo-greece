@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 
 namespace Kolo.Editor
@@ -13,28 +14,40 @@ namespace Kolo.Editor
 
         public static void ExportIos()
         {
-            string[] scenes = ResolveEnabledScenes(EditorBuildSettings.scenes);
+            BuildPlayerOptions options = CreateBuildPlayerOptions(
+                EditorBuildSettings.scenes,
+                Environment.GetCommandLineArgs());
+
+            Directory.CreateDirectory(options.locationPathName);
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            EnsureBuildSucceeded(report.summary.result, report.summary.totalErrors);
+        }
+
+        internal static BuildPlayerOptions CreateBuildPlayerOptions(
+            EditorBuildSettingsScene[] configuredScenes,
+            string[] args)
+        {
+            string[] scenes = ResolveEnabledScenes(configuredScenes);
             if (scenes.Length == 0)
             {
                 throw new BuildFailedException("No enabled scenes are configured.");
             }
 
-            string outputPath = ResolveOutputPath(Environment.GetCommandLineArgs());
-            Directory.CreateDirectory(outputPath);
-
-            BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            return new BuildPlayerOptions
             {
                 scenes = scenes,
-                locationPathName = outputPath,
+                locationPathName = ResolveOutputPath(args),
                 target = BuildTarget.iOS,
                 options = BuildOptions.None
-            });
+            };
+        }
 
-            if (report.summary.result != BuildResult.Succeeded)
+        internal static void EnsureBuildSucceeded(BuildResult result, uint totalErrors)
+        {
+            if (result != BuildResult.Succeeded)
             {
                 throw new BuildFailedException(
-                    $"iOS export failed: {report.summary.result}, " +
-                    $"{report.summary.totalErrors} errors.");
+                    $"iOS export failed: {result}, {totalErrors} errors.");
             }
         }
 

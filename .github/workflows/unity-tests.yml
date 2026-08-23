@@ -20,10 +20,6 @@ jobs:
     name: EditMode and PlayMode
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -33,6 +29,10 @@ jobs:
 
       - name: Verify Unity secrets
         shell: bash
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         run: |
           missing=0
           for name in UNITY_LICENSE UNITY_EMAIL UNITY_PASSWORD; do
@@ -54,11 +54,11 @@ jobs:
 
       - name: Run Unity tests
         id: tests
-        uses: game-ci/unity-test-runner@v4
+        uses: game-ci/unity-test-runner@0ff419b913a3630032cbe0de48a0099b5a9f0ed9 # v4
         env:
-          UNITY_LICENSE: ${{ env.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ env.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ env.UNITY_PASSWORD }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: .
           unityVersion: 6000.0.44f1
