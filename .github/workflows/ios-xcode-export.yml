@@ -1,0 +1,81 @@
+name: Export iOS Xcode project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-xcode-export-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export:
+    name: Export unsigned iOS Xcode project
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Verify Unity secrets
+        shell: bash
+        run: |
+          missing=0
+          for name in UNITY_LICENSE UNITY_EMAIL UNITY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+          exit "${missing}"
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: unity-library-6000.0.44f1-ios-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            unity-library-6000.0.44f1-ios-
+            unity-library-6000.0.44f1-
+
+      - name: Export iOS Xcode project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ env.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ env.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ env.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          targetPlatform: iOS
+          unityVersion: 6000.0.44f1
+          buildMethod: Kolo.Editor.BuildCommand.ExportIos
+          customParameters: -customBuildPath build/iOS/Kolo
+          versioning: Semantic
+
+      - name: Verify Xcode project export
+        shell: bash
+        run: |
+          xcodeproj="$(find build/iOS/Kolo -type d -name '*.xcodeproj' -print -quit)"
+          if [ -z "${xcodeproj}" ]; then
+            echo "::error::No .xcodeproj was produced in build/iOS/Kolo."
+            exit 1
+          fi
+          echo "Found Xcode project: ${xcodeproj}"
+
+      - name: Upload iOS Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: kolo-ios-xcode-project
+          path: build/iOS/Kolo
+          if-no-files-found: error
+          retention-days: 7
