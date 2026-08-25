@@ -1,8 +1,16 @@
 import struct
+import hashlib
+import json
+import tempfile
 import unittest
 import zlib
+from pathlib import Path
 
-from Tools.Art.validate_meteora_art import PngValidationError, validate_png_bytes
+from Tools.Art.validate_meteora_art import (
+    PngValidationError,
+    validate_manifest,
+    validate_png_bytes,
+)
 
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -33,6 +41,80 @@ class ValidatePngBytesTests(unittest.TestCase):
 
         with self.assertRaisesRegex(PngValidationError, "IDAT|IEND|truncated"):
             validate_png_bytes(corrupt)
+
+    def test_rejects_chunk_with_bad_crc(self):
+        data = bytearray(make_png(width=2, height=2, channels=4))
+        data[-1] ^= 1
+
+        with self.assertRaisesRegex(PngValidationError, "CRC"):
+            validate_png_bytes(bytes(data))
+
+    def test_rejects_incomplete_decoded_scanlines(self):
+        color_type = 2
+        ihdr = struct.pack(">IIBBBBB", 2, 2, 8, color_type, 0, 0, 0)
+        one_scanline = b"\x00" + bytes(2 * 3)
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"IDAT", zlib.compress(one_scanline))
+            + _chunk(b"IEND", b"")
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "decoded scanlines"):
+            validate_png_bytes(data)
+
+
+class ValidateManifestTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def make_pack(
+        self,
+        *,
+        sha256: str | None = None,
+        alpha: str = "opaque",
+        png_channels: int = 3,
+        width: int = 2,
+        height: int = 2,
+    ) -> Path:
+        data = make_png(width=width, height=height, channels=png_channels)
+        asset_path = Path("Assets/Art/Meteora/test.png")
+        target = self.root / asset_path
+        target.parent.mkdir(parents=True)
+        target.write_bytes(data)
+        manifest_path = Path("Assets/Art/Meteora/manifest.json")
+        manifest = {
+            "assets": [
+                {
+                    "path": asset_path.as_posix(),
+                    "width": width,
+                    "height": height,
+                    "sha256": sha256 or hashlib.sha256(data).hexdigest(),
+                    "alphaExpectation": alpha,
+                }
+            ]
+        }
+        (self.root / manifest_path).write_text(json.dumps(manifest), encoding="utf-8")
+        return manifest_path
+
+    def test_manifest_rejects_hash_mismatch(self):
+        manifest = self.make_pack(sha256="0" * 64)
+
+        self.assertIn("sha256 mismatch", validate_manifest(self.root, manifest)[0])
+
+    def test_manifest_rejects_wrong_alpha_contract(self):
+        manifest = self.make_pack(alpha="transparent", png_channels=3)
+
+        self.assertIn("alpha mismatch", validate_manifest(self.root, manifest)[0])
+
+    def test_manifest_accepts_complete_valid_png(self):
+        manifest = self.make_pack(alpha="opaque", png_channels=3)
+
+        self.assertEqual([], validate_manifest(self.root, manifest))
 
 
 if __name__ == "__main__":
