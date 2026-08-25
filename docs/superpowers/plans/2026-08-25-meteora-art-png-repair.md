@@ -30,7 +30,7 @@
 **Interfaces:**
 - Produces: `validate_png_bytes(data: bytes) -> PngInfo`; `validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]`; process exit code `0` only when every manifest asset fully decodes and matches its declared SHA-256/dimensions/alpha.
 
-- [ ] **Step 1: Write the failing corruption regression test**
+- [x] **Step 1: Write the failing corruption regression test**
 
 ```python
 def test_rejects_png_with_valid_ihdr_but_truncated_idat():
@@ -40,13 +40,13 @@ def test_rejects_png_with_valid_ihdr_but_truncated_idat():
         validate_png_bytes(corrupt)
 ```
 
-- [ ] **Step 2: Run the test before implementation**
+- [x] **Step 2: Run the test before implementation**
 
 Run: `python3 -m unittest discover -s Tools/Art/tests -v`
 
 Expected: FAIL because `Tools.Art.validate_meteora_art` does not exist.
 
-- [ ] **Step 3: Implement the minimal validator**
+- [x] **Step 3: Implement the minimal validator**
 
 ```python
 def validate_png_bytes(data: bytes) -> PngInfo:
@@ -63,7 +63,7 @@ def validate_png_bytes(data: bytes) -> PngInfo:
     return PngInfo(ihdr.width, ihdr.height, ihdr.color_type)
 ```
 
-- [ ] **Step 4: Add manifest behavior tests**
+- [x] **Step 4: Add manifest behavior tests**
 
 ```python
 def test_manifest_rejects_hash_mismatch(self):
@@ -79,7 +79,7 @@ def test_manifest_accepts_complete_valid_png(self):
     self.assertEqual([], validate_manifest(root, manifest))
 ```
 
-- [ ] **Step 5: Verify GREEN locally and in GitHub Actions**
+- [x] **Step 5: Verify GREEN locally and in GitHub Actions**
 
 Run: `python3 -m unittest discover -s Tools/Art/tests -v`
 
@@ -87,7 +87,7 @@ Run: `python3 Tools/Art/validate_meteora_art.py --root . --manifest Assets/Art/M
 
 Expected before asset repair: unit tests PASS; repository validation FAIL and names every corrupt PNG.
 
-- [ ] **Step 6: Commit the validator and workflow**
+- [x] **Step 6: Commit the validator and workflow**
 
 ```bash
 git add Tools/Art .github/workflows/validate-meteora-art.yml
@@ -103,29 +103,29 @@ git commit -m "test: validate complete Meteora PNG streams"
 - Consumes: exact invalid-path report from `validate_meteora_art.py`.
 - Produces: fully decodable 8-bit RGB/RGBA PNGs at the existing paths.
 
-- [ ] **Step 1: Record the failing validator output**
+- [x] **Step 1: Record the failing validator output**
 
 Run the permanent workflow at the exact Task 1 commit and save the job/run IDs in the execution report.
 
-- [ ] **Step 2: Regenerate each invalid image independently**
+- [x] **Step 2: Regenerate each invalid image independently**
 
 Use one built-in image-generation call per asset. Match the approved Meteora art brief, keep backgrounds compatible with the 2.5D side-view route, use no text/logos/watermarks, and preserve the required opaque/transparent contract.
 
-- [ ] **Step 3: Normalize generated output without visual redesign**
+- [x] **Step 3: Normalize generated output without visual redesign**
 
 Use a lossless PNG re-encode only when required to set exact RGB/RGBA mode and remove unsafe ancillary chunks. Do not crop away required content or synthesize missing pixels.
 
-- [ ] **Step 4: Upload replacements without renaming paths**
+- [x] **Step 4: Upload replacements without renaming paths**
 
 Create new Git blobs, create one tree based on the current feature tree, create a single non-forced child commit, then fast-forward only `art/meteora-level-01-assets`.
 
-- [ ] **Step 5: Run the integrity gate**
+- [x] **Step 5: Run the integrity gate**
 
 Run: `python3 Tools/Art/validate_meteora_art.py --root . --manifest Assets/Art/Meteora/meteora-level-01-art-manifest.json`
 
 Expected: FAIL only because the manifest still contains old SHA-256 values.
 
-- [ ] **Step 6: Commit the repaired PNGs**
+- [x] **Step 6: Commit the repaired PNGs**
 
 ```bash
 git add Assets/Art
@@ -138,20 +138,22 @@ git commit -m "fix: replace corrupted Meteora art PNGs"
 - Modify: `Assets/Art/Meteora/meteora-level-01-art-manifest.json`
 - Modify: `Assets/Art/Meteora/README.md`
 - Modify: `docs/superpowers/plans/2026-08-25-meteora-art-png-repair.md`
+- Create: `docs/concept-art/asset-previews/meteora-level-01-repaired-atlases.png`
+- Create: `docs/concept-art/asset-previews/meteora-level-01-parallax-safe-crops.png`
 
 **Interfaces:**
 - Consumes: SHA-256, decoded dimensions, and color type reported by the validator.
 - Produces: a self-consistent art pack whose permanent CI gate passes.
 
-- [ ] **Step 1: Update only changed manifest hashes and confirmed metadata**
+- [x] **Step 1: Update only changed manifest hashes and confirmed metadata**
 
 Keep the schema, exact path order, usage values, and alpha values unchanged.
 
-- [ ] **Step 2: Document the integrity gate**
+- [x] **Step 2: Document the integrity gate**
 
 Add the exact local validation command and explain that a valid header alone is insufficient; the complete IDAT stream must decode and end with a valid IEND chunk.
 
-- [ ] **Step 3: Run unit, repository, and CI verification**
+- [x] **Step 3: Run unit, repository, and CI verification**
 
 ```bash
 python3 -m unittest discover -s Tools/Art/tests -v
@@ -160,13 +162,17 @@ python3 Tools/Art/validate_meteora_art.py --root . --manifest Assets/Art/Meteora
 
 Expected: all unit tests PASS; 12/12 runtime PNGs PASS; GitHub Actions workflow PASS.
 
-- [ ] **Step 4: Visually inspect every repaired image**
+- [x] **Step 4: Visually inspect every repaired image**
 
 Confirm there are no black/truncated regions, corrupt scanlines, accidental text, watermarks, or mismatched alpha backgrounds. Create a contact sheet for review without adding it under runtime `Assets/`.
 
-- [ ] **Step 5: Commit final metadata and plan state**
+- [x] **Step 5: Commit final metadata and plan state**
 
 ```bash
 git add Assets/Art/Meteora/meteora-level-01-art-manifest.json Assets/Art/Meteora/README.md docs/superpowers/plans/2026-08-25-meteora-art-png-repair.md
 git commit -m "docs: finalize repaired Meteora art pack"
 ```
+
+## Execution note — 2026-08-25
+
+Task 2 exact-head CI run `32844503500`, job `97791071817`, confirmed 24/24 unit tests and only the eight expected pre-manifest SHA-256 mismatches. Task 3 updates those hashes, documents deterministic slicing and reviewed crop envelopes, and saves the two non-runtime QA previews above. Unity Editor import, manual SpriteRects/`.meta` creation, and device checks remain deferred.

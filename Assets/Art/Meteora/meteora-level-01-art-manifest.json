@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "level": "Meteora/Level01",
-  "generatedAt": "2026-08-24",
+  "generatedAt": "2026-08-25",
   "unityValidated": false,
   "assets": [
     {
@@ -24,7 +24,7 @@
       "path": "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
       "width": 1774,
       "height": 887,
-      "sha256": "e5daf5b34145c027c72d09bee776dddcfe185c8c2356c49f006fe3702fc5dc08",
+      "sha256": "df44902c84ffc9b91eb1e836a905540fe8420cdff85cf9e463d69cd1a26bf303",
       "alphaExpectation": "opaque",
       "usage": "parallax"
     },
@@ -32,7 +32,7 @@
       "path": "Assets/Art/Meteora/Backgrounds/Level01/clouds-far.png",
       "width": 1672,
       "height": 941,
-      "sha256": "1e345421245a62b1b7cccf9a65f7c0f8f338c7fbc29e83796a152d9521733c97",
+      "sha256": "3fca05cdb15ed1f00530f3a32870e3549be6f50a9489c80e7d8f756f8d9b827c",
       "alphaExpectation": "transparent",
       "usage": "parallax"
     },
@@ -48,7 +48,7 @@
       "path": "Assets/Art/Meteora/Backgrounds/Level01/meteora-mid.png",
       "width": 1672,
       "height": 941,
-      "sha256": "590cb688c6a9aa77812ecb51c9d8a1634067f170c0181d260c9711135a1f9761",
+      "sha256": "4892bbdabcf4fd5f3053cde604b6a7bd900e80e4c4a26fde4b0f006ae8d2794e",
       "alphaExpectation": "transparent",
       "usage": "parallax"
     },
@@ -56,7 +56,7 @@
       "path": "Assets/Art/Meteora/Backgrounds/Level01/cliffs-near.png",
       "width": 1672,
       "height": 941,
-      "sha256": "56deafb80d2567c18e3bfca59b799abb09785deda64691a985d273e4f4bd4343",
+      "sha256": "4dc989c5cb5d8a1293272b49b6e538f69633f98620761ee5e4ca950ea3e6fdfe",
       "alphaExpectation": "transparent",
       "usage": "parallax"
     },
@@ -64,7 +64,7 @@
       "path": "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "a6f46284c38e3bbdbf8494805ee7f4330d7d22f1384ca450d101302cc21c4b97",
+      "sha256": "ee2dc8b113522002b78f7fd5805765962f884a8a3b8c8fb65f14663411036adf",
       "alphaExpectation": "opaque",
       "usage": "atlas"
     },
@@ -72,7 +72,7 @@
       "path": "Assets/Art/Meteora/Environment/wood-rope-bronze-atlas.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "666a604a802ef4700d214b2b353c33741ab2fec7a4f91246924a68b4048532c8",
+      "sha256": "c3be587cce812c6b6d324cd15b155d489011b99630eaa4bedfdfbcac286ef54c",
       "alphaExpectation": "transparent",
       "usage": "atlas"
     },
@@ -80,7 +80,7 @@
       "path": "Assets/Art/Meteora/Environment/interactables-atlas.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "f24ce07413141cb419b7be9f99fddd6034651954c080a876cf87e4ffc5f3a812",
+      "sha256": "a8c84cae0394e8de9e784433d2f1d9b6fab584f1c4c5a54bf1e8bb777fde83aa",
       "alphaExpectation": "transparent",
       "usage": "atlas"
     },
@@ -88,7 +88,7 @@
       "path": "Assets/Art/Meteora/Environment/water-honey-effects.png",
       "width": 1254,
       "height": 1254,
-      "sha256": "5c11c9ac6cc3134af38a8181fa97c777f643186d647e47fc0daa44ac2e837a73",
+      "sha256": "1b2b0ec268a550ecbb16ec348c3e6e2ad4c73cfc51d3ad4ee38a86f27fcb2aca",
       "alphaExpectation": "transparent",
       "usage": "atlas"
     },
