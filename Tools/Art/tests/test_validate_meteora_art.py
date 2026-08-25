@@ -63,6 +63,51 @@ class ValidatePngBytesTests(unittest.TestCase):
         with self.assertRaisesRegex(PngValidationError, "decoded scanlines"):
             validate_png_bytes(data)
 
+    def test_rejects_unknown_critical_chunk(self):
+        width = height = 1
+        ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+        scanline = b"\x00" + bytes(width * 3)
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"ABCD", b"")
+            + _chunk(b"IDAT", zlib.compress(scanline))
+            + _chunk(b"IEND", b"")
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "critical chunk"):
+            validate_png_bytes(data)
+
+    def test_rejects_nonconsecutive_idat_chunks(self):
+        width = height = 1
+        ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+        compressed = zlib.compress(b"\x00" + bytes(width * 3))
+        split = len(compressed) // 2
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"IDAT", compressed[:split])
+            + _chunk(b"tEXt", b"note\x00value")
+            + _chunk(b"IDAT", compressed[split:])
+            + _chunk(b"IEND", b"")
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "IDAT.*consecutive"):
+            validate_png_bytes(data)
+
+    def test_rejects_invalid_scanline_filter_byte(self):
+        width = height = 1
+        ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"IDAT", zlib.compress(b"\x05" + bytes(width * 3)))
+            + _chunk(b"IEND", b"")
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "filter byte"):
+            validate_png_bytes(data)
+
 
 class ValidateManifestTests(unittest.TestCase):
     def setUp(self):

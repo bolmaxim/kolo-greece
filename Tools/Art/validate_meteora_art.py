@@ -15,6 +15,7 @@ from pathlib import Path
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SUPPORTED_COLOR_TYPES = {2: 3, 6: 4}
+KNOWN_CRITICAL_CHUNKS = {b"IHDR", b"PLTE", b"IDAT", b"IEND"}
 
 
 class PngValidationError(ValueError):
@@ -59,6 +60,9 @@ def _parse_chunks(data: bytes) -> list[_Chunk]:
         if actual_crc != declared_crc:
             label = kind.decode("ascii", errors="replace")
             raise PngValidationError(f"CRC mismatch in {label} chunk")
+        if kind[0] & 0x20 == 0 and kind not in KNOWN_CRITICAL_CHUNKS:
+            label = kind.decode("ascii", errors="replace")
+            raise PngValidationError(f"unknown critical chunk: {label}")
         chunks.append(_Chunk(kind, payload))
         offset = chunk_end
         if kind == b"IEND":
@@ -90,9 +94,12 @@ def _read_ihdr(chunks: list[_Chunk]) -> tuple[int, int, int]:
 
 
 def _inflate_idat(chunks: list[_Chunk]) -> bytes:
-    idat_parts = [chunk.data for chunk in chunks if chunk.kind == b"IDAT"]
+    idat_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"IDAT"]
+    idat_parts = [chunks[index].data for index in idat_indexes]
     if not idat_parts:
         raise PngValidationError("PNG has no IDAT chunk")
+    if idat_indexes != list(range(idat_indexes[0], idat_indexes[-1] + 1)):
+        raise PngValidationError("IDAT chunks must be consecutive")
     compressed = b"".join(idat_parts)
     inflater = zlib.decompressobj()
     try:
@@ -117,6 +124,13 @@ def validate_png_bytes(data: bytes) -> PngInfo:
         raise PngValidationError(
             f"decoded scanlines: {len(decoded)} != {expected_size} bytes"
         )
+    scanline_size = 1 + width * SUPPORTED_COLOR_TYPES[color_type]
+    for row in range(height):
+        filter_byte = decoded[row * scanline_size]
+        if filter_byte > 4:
+            raise PngValidationError(
+                f"invalid filter byte {filter_byte} on scanline {row}"
+            )
     return PngInfo(width=width, height=height, color_type=color_type)
 
 
