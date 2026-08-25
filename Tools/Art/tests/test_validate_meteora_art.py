@@ -469,6 +469,65 @@ class ValidateManifestTests(unittest.TestCase):
         self.assertEqual(0, result)
         self.assertIn("validation passed", output.getvalue())
 
+    def test_cli_returns_zero_for_two_valid_manifests(self):
+        level01_manifest = self.make_pack()
+        level02_manifest = self.make_level02_pack()
+        output = io.StringIO()
+
+        with contextlib.redirect_stdout(output):
+            result = main(
+                [
+                    "--root",
+                    str(self.root),
+                    "--manifest",
+                    str(level01_manifest),
+                    "--manifest",
+                    str(level02_manifest),
+                ]
+            )
+
+        self.assertEqual(0, result)
+        self.assertIn("(2 manifests)", output.getvalue())
+
+    def test_cli_identifies_invalid_level02_manifest(self):
+        level01_manifest = self.make_pack()
+        level02_manifest = self.make_level02_pack()
+        manifest = self.read_manifest(level02_manifest)
+        manifest["assets"][0]["sha256"] = "0" * 64
+        self.write_manifest(level02_manifest, manifest)
+        error_output = io.StringIO()
+
+        with contextlib.redirect_stderr(error_output):
+            result = main(
+                [
+                    "--root",
+                    str(self.root),
+                    "--manifest",
+                    str(level01_manifest),
+                    "--manifest",
+                    str(level02_manifest),
+                ]
+            )
+
+        self.assertEqual(1, result)
+        self.assertIn(str(level02_manifest), error_output.getvalue())
+        self.assertIn(LEVEL02_REQUIRED_PATHS[0], error_output.getvalue())
+
+    def test_cli_reports_single_manifest_count(self):
+        manifest_path = self.make_pack()
+        output = io.StringIO()
+
+        with contextlib.redirect_stdout(output):
+            result = main(["--root", str(self.root), "--manifest", str(manifest_path)])
+
+        self.assertEqual(0, result)
+        self.assertIn("(1 manifests)", output.getvalue())
+
+    def test_cli_requires_manifest_argument(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                main(["--root", str(self.root)])
+
     def test_cli_returns_one_and_lists_invalid_asset(self):
         manifest_path = self.make_pack(sha256="0" * 64)
         error_output = io.StringIO()

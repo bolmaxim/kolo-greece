@@ -354,19 +354,29 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True, help="repository root")
-    parser.add_argument("--manifest", type=Path, required=True, help="manifest path")
+    parser.add_argument(
+        "--manifest",
+        action="append",
+        type=Path,
+        required=True,
+        help="manifest path",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    errors = validate_manifest(args.root, args.manifest)
+    errors = [
+        (manifest_path, error)
+        for manifest_path in args.manifest
+        for error in validate_manifest(args.root, manifest_path)
+    ]
     if errors:
         print(f"Meteora art validation failed ({len(errors)} error(s)):", file=sys.stderr)
-        for error in errors:
-            print(f"- {error}", file=sys.stderr)
+        for manifest_path, error in errors:
+            print(f"- {manifest_path}: {error}", file=sys.stderr)
         return 1
-    print("Meteora art validation passed")
+    print(f"Meteora art validation passed ({len(args.manifest)} manifests)")
     return 0
 
 
