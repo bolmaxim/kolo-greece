@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "level": "Meteora/Level01",
+  "generatedAt": "2026-08-24",
+  "unityValidated": false,
+  "assets": [
+    {
+      "path": "Assets/Art/Meteora/Characters/Kolo/kolo-normal-sheet.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "c910e6ecc53b4450567b0acc8e23b7f6f0f396dcb258b8155ee6e6fa96cf33c0",
+      "alphaExpectation": "transparent",
+      "usage": "character-sheet"
+    },
+    {
+      "path": "Assets/Art/Meteora/Characters/Kolo/kolo-heavy-sheet.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "7ec55185632080ac061ce88fc13ed7fb13c6c547ae225ac132b29156d9810a0b",
+      "alphaExpectation": "transparent",
+      "usage": "character-sheet"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
+      "width": 1774,
+      "height": 887,
+      "sha256": "e5daf5b34145c027c72d09bee776dddcfe185c8c2356c49f006fe3702fc5dc08",
+      "alphaExpectation": "opaque",
+      "usage": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level01/clouds-far.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "1e345421245a62b1b7cccf9a65f7c0f8f338c7fbc29e83796a152d9521733c97",
+      "alphaExpectation": "transparent",
+      "usage": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level01/meteora-far.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "a9eadaa934dcf4c1c3471455f1cbb74834434b0089398910af65f51a841f0dc2",
+      "alphaExpectation": "transparent",
+      "usage": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level01/meteora-mid.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "590cb688c6a9aa77812ecb51c9d8a1634067f170c0181d260c9711135a1f9761",
+      "alphaExpectation": "transparent",
+      "usage": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level01/cliffs-near.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "56deafb80d2567c18e3bfca59b799abb09785deda64691a985d273e4f4bd4343",
+      "alphaExpectation": "transparent",
+      "usage": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "a6f46284c38e3bbdbf8494805ee7f4330d7d22f1384ca450d101302cc21c4b97",
+      "alphaExpectation": "opaque",
+      "usage": "atlas"
+    },
+    {
+      "path": "Assets/Art/Meteora/Environment/wood-rope-bronze-atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "666a604a802ef4700d214b2b353c33741ab2fec7a4f91246924a68b4048532c8",
+      "alphaExpectation": "transparent",
+      "usage": "atlas"
+    },
+    {
+      "path": "Assets/Art/Meteora/Environment/interactables-atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f24ce07413141cb419b7be9f99fddd6034651954c080a876cf87e4ffc5f3a812",
+      "alphaExpectation": "transparent",
+      "usage": "atlas"
+    },
+    {
+      "path": "Assets/Art/Meteora/Environment/water-honey-effects.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "5c11c9ac6cc3134af38a8181fa97c777f643186d647e47fc0daa44ac2e837a73",
+      "alphaExpectation": "transparent",
+      "usage": "atlas"
+    },
+    {
+      "path": "Assets/Art/UI/Controls/touch-controls-atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "4a00ae54708ae6ea785c3aa3e4d9686a84aa3d6f5548d26852f3eee7d6c534bb",
+      "alphaExpectation": "transparent",
+      "usage": "ui-atlas"
+    }
+  ]
+}
