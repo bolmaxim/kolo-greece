@@ -13,25 +13,20 @@ import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    from Tools.Art.meteora_contracts import (
+        LEVEL01_REQUIRED_ASSET_PATHS,
+        required_paths_for,
+    )
+except ModuleNotFoundError:
+    from meteora_contracts import LEVEL01_REQUIRED_ASSET_PATHS, required_paths_for
+
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SUPPORTED_COLOR_TYPES = {2: 3, 6: 4}
 KNOWN_CRITICAL_CHUNKS = {b"IHDR", b"PLTE", b"IDAT", b"IEND"}
 MANIFEST_CONTRACT_VERSION = 1
-REQUIRED_ASSET_PATHS = (
-    "Assets/Art/Meteora/Characters/Kolo/kolo-normal-sheet.png",
-    "Assets/Art/Meteora/Characters/Kolo/kolo-heavy-sheet.png",
-    "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
-    "Assets/Art/Meteora/Backgrounds/Level01/clouds-far.png",
-    "Assets/Art/Meteora/Backgrounds/Level01/meteora-far.png",
-    "Assets/Art/Meteora/Backgrounds/Level01/meteora-mid.png",
-    "Assets/Art/Meteora/Backgrounds/Level01/cliffs-near.png",
-    "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
-    "Assets/Art/Meteora/Environment/wood-rope-bronze-atlas.png",
-    "Assets/Art/Meteora/Environment/interactables-atlas.png",
-    "Assets/Art/Meteora/Environment/water-honey-effects.png",
-    "Assets/Art/UI/Controls/touch-controls-atlas.png",
-)
+REQUIRED_ASSET_PATHS = LEVEL01_REQUIRED_ASSET_PATHS
 MAX_DIMENSION = 8192
 MAX_PIXELS = 32_000_000
 MAX_PNG_BYTES = 64 * 1024 * 1024
@@ -246,6 +241,11 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         return [f"{manifest_path}: cannot read manifest: {error}"]
 
+    try:
+        required_asset_paths = required_paths_for(manifest_path)
+    except ValueError as error:
+        return [str(error)]
+
     if not isinstance(manifest, dict):
         return [f"{manifest_path}: manifest top-level value must be an object"]
 
@@ -262,16 +262,16 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
     )
     if duplicate_paths:
         errors.append(f"duplicate asset path(s): {', '.join(duplicate_paths)}")
-    missing_paths = [path for path in REQUIRED_ASSET_PATHS if path not in paths]
+    missing_paths = [path for path in required_asset_paths if path not in paths]
     if missing_paths:
         errors.append(f"missing required asset(s): {', '.join(missing_paths)}")
     extra_paths = [
         path for path in paths
-        if isinstance(path, str) and path not in REQUIRED_ASSET_PATHS
+        if isinstance(path, str) and path not in required_asset_paths
     ]
     if extra_paths:
         errors.append(f"unexpected asset path(s): {', '.join(extra_paths)}")
-    if paths != list(REQUIRED_ASSET_PATHS):
+    if paths != list(required_asset_paths):
         errors.append(
             f"asset paths must match contract v{MANIFEST_CONTRACT_VERSION} in exact order"
         )

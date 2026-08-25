@@ -15,6 +15,11 @@ from Tools.Art.validate_meteora_art import (
     validate_png_bytes,
 )
 
+try:
+    from Tools.Art.meteora_contracts import required_paths_for
+except ModuleNotFoundError:
+    required_paths_for = None
+
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 REQUIRED_PATHS = [
@@ -30,6 +35,15 @@ REQUIRED_PATHS = [
     "Assets/Art/Meteora/Environment/interactables-atlas.png",
     "Assets/Art/Meteora/Environment/water-honey-effects.png",
     "Assets/Art/UI/Controls/touch-controls-atlas.png",
+]
+LEVEL02_REQUIRED_PATHS = [
+    "Assets/Art/Meteora/Backgrounds/Level02/sky-base.png",
+    "Assets/Art/Meteora/Backgrounds/Level02/clouds-depth.png",
+    "Assets/Art/Meteora/Backgrounds/Level02/meteora-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level02/meteora-mid-gorge.png",
+    "Assets/Art/Meteora/Backgrounds/Level02/cliffs-near-station.png",
+    "Assets/Art/Meteora/Environment/Level02/cargo-crane-atlas.png",
+    "Assets/Art/Meteora/Environment/Level02/cliff-route-atlas.png",
 ]
 OPAQUE_PATHS = {
     "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
@@ -224,7 +238,7 @@ class ValidateManifestTests(unittest.TestCase):
         width: int = 2,
         height: int = 2,
     ) -> Path:
-        manifest_path = Path("Assets/Art/Meteora/manifest.json")
+        manifest_path = Path("Assets/Art/Meteora/meteora-level-01-art-manifest.json")
         assets = []
         for index, path_string in enumerate(REQUIRED_PATHS):
             expected_alpha = "opaque" if path_string in OPAQUE_PATHS else "transparent"
@@ -253,11 +267,80 @@ class ValidateManifestTests(unittest.TestCase):
         (self.root / manifest_path).write_text(json.dumps(manifest), encoding="utf-8")
         return manifest_path
 
+    def make_level02_pack(self) -> Path:
+        manifest_path = Path("Assets/Art/Meteora/meteora-level-02-art-manifest.json")
+        assets = []
+        for index, path_string in enumerate(LEVEL02_REQUIRED_PATHS):
+            channels = 3 if index == 0 else 4
+            data = make_png(width=2, height=2, channels=channels)
+            target = self.root / path_string
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            assets.append(
+                {
+                    "path": path_string,
+                    "width": 2,
+                    "height": 2,
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "alphaExpectation": "opaque" if index == 0 else "transparent",
+                }
+            )
+        (self.root / manifest_path).write_text(
+            json.dumps({"assets": assets}), encoding="utf-8"
+        )
+        return manifest_path
+
     def read_manifest(self, manifest_path: Path) -> dict:
         return json.loads((self.root / manifest_path).read_text(encoding="utf-8"))
 
     def write_manifest(self, manifest_path: Path, manifest: object) -> None:
         (self.root / manifest_path).write_text(json.dumps(manifest), encoding="utf-8")
+
+    def test_level01_filename_selects_original_ordered_paths(self):
+        self.assertIsNotNone(required_paths_for)
+        if required_paths_for is None:
+            return
+
+        self.assertEqual(
+            tuple(REQUIRED_PATHS),
+            required_paths_for(Path("meteora-level-01-art-manifest.json")),
+        )
+
+    def test_level02_filename_selects_exact_ordered_paths(self):
+        self.assertIsNotNone(required_paths_for)
+        if required_paths_for is None:
+            return
+
+        self.assertEqual(
+            tuple(LEVEL02_REQUIRED_PATHS),
+            required_paths_for(Path("meteora-level-02-art-manifest.json")),
+        )
+
+    def test_unknown_manifest_contract_is_only_error(self):
+        manifest_path = Path("Assets/Art/Meteora/unknown.json")
+        (self.root / manifest_path).parent.mkdir(parents=True, exist_ok=True)
+        self.write_manifest(manifest_path, {"assets": []})
+
+        self.assertEqual(
+            ["unknown manifest contract: unknown.json"],
+            validate_manifest(self.root, manifest_path),
+        )
+
+    def test_level02_manifest_accepts_valid_seven_file_pack(self):
+        manifest_path = self.make_level02_pack()
+
+        self.assertEqual([], validate_manifest(self.root, manifest_path))
+
+    def test_level02_manifest_rejects_valid_pack_when_paths_are_reordered(self):
+        manifest_path = self.make_level02_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0], manifest["assets"][1] = manifest["assets"][1], manifest["assets"][0]
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertEqual(
+            ["asset paths must match contract v1 in exact order"],
+            validate_manifest(self.root, manifest_path),
+        )
 
     def test_manifest_rejects_hash_mismatch(self):
         manifest = self.make_pack(sha256="0" * 64)
