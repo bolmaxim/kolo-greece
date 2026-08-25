@@ -169,7 +169,7 @@ Confirm there are no black/truncated regions, corrupt scanlines, accidental text
 - [x] **Step 5: Commit final metadata and plan state**
 
 ```bash
-git add Assets/Art/Meteora/meteora-level-01-art-manifest.json Assets/Art/Meteora/README.md docs/superpowers/plans/2026-08-25-meteora-art-png-repair.md
+git add Assets/Art/Meteora/meteora-level-01-art-manifest.json Assets/Art/Meteora/README.md docs/superpowers/plans/2026-08-25-meteora-art-png-repair.md docs/concept-art/asset-previews/meteora-level-01-repaired-atlases.png docs/concept-art/asset-previews/meteora-level-01-parallax-safe-crops.png
 git commit -m "docs: finalize repaired Meteora art pack"
 ```
 
