@@ -1,0 +1,27 @@
+name: Validate Meteora art
+
+on:
+  push:
+    branches:
+      - art/meteora-level-01-assets
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Run validator unit tests
+        run: python3 -m unittest discover -s Tools/Art/tests -v
+      - name: Validate Meteora runtime art
+        run: >-
+          python3 Tools/Art/validate_meteora_art.py
+          --root .
+          --manifest Assets/Art/Meteora/meteora-level-01-art-manifest.json
