@@ -1,5 +1,7 @@
 import struct
+import contextlib
 import hashlib
+import io
 import json
 import tempfile
 import unittest
@@ -8,12 +10,31 @@ from pathlib import Path
 
 from Tools.Art.validate_meteora_art import (
     PngValidationError,
+    main,
     validate_manifest,
     validate_png_bytes,
 )
 
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+REQUIRED_PATHS = [
+    "Assets/Art/Meteora/Characters/Kolo/kolo-normal-sheet.png",
+    "Assets/Art/Meteora/Characters/Kolo/kolo-heavy-sheet.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/clouds-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/meteora-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/meteora-mid.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/cliffs-near.png",
+    "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
+    "Assets/Art/Meteora/Environment/wood-rope-bronze-atlas.png",
+    "Assets/Art/Meteora/Environment/interactables-atlas.png",
+    "Assets/Art/Meteora/Environment/water-honey-effects.png",
+    "Assets/Art/UI/Controls/touch-controls-atlas.png",
+]
+OPAQUE_PATHS = {
+    "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
+    "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
+}
 
 
 def _chunk(kind: bytes, payload: bytes) -> bytes:
@@ -108,6 +129,30 @@ class ValidatePngBytesTests(unittest.TestCase):
         with self.assertRaisesRegex(PngValidationError, "filter byte"):
             validate_png_bytes(data)
 
+    def test_rejects_dimensions_above_resource_limit(self):
+        ihdr = struct.pack(">IIBBBBB", 100_000, 1, 8, 2, 0, 0, 0)
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"IDAT", zlib.compress(b"\x00\x00\x00\x00"))
+            + _chunk(b"IEND", b"")
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "limit"):
+            validate_png_bytes(data)
+
+    def test_rejects_decompressed_data_above_expected_size(self):
+        ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"IDAT", zlib.compress(b"\x00" + bytes(200_000)))
+            + _chunk(b"IEND", b"")
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "decoded scanlines|limit"):
+            validate_png_bytes(data)
+
 
 class ValidateManifestTests(unittest.TestCase):
     def setUp(self):
@@ -121,30 +166,45 @@ class ValidateManifestTests(unittest.TestCase):
         self,
         *,
         sha256: str | None = None,
-        alpha: str = "opaque",
-        png_channels: int = 3,
+        alpha: str | None = None,
+        png_channels: int | None = None,
         width: int = 2,
         height: int = 2,
     ) -> Path:
-        data = make_png(width=width, height=height, channels=png_channels)
-        asset_path = Path("Assets/Art/Meteora/test.png")
-        target = self.root / asset_path
-        target.parent.mkdir(parents=True)
-        target.write_bytes(data)
         manifest_path = Path("Assets/Art/Meteora/manifest.json")
-        manifest = {
-            "assets": [
+        assets = []
+        for index, path_string in enumerate(REQUIRED_PATHS):
+            expected_alpha = "opaque" if path_string in OPAQUE_PATHS else "transparent"
+            channels = 3 if expected_alpha == "opaque" else 4
+            if index == 0 and png_channels is not None:
+                channels = png_channels
+            data = make_png(width=width, height=height, channels=channels)
+            target = self.root / path_string
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            assets.append(
                 {
-                    "path": asset_path.as_posix(),
+                    "path": path_string,
                     "width": width,
                     "height": height,
-                    "sha256": sha256 or hashlib.sha256(data).hexdigest(),
-                    "alphaExpectation": alpha,
+                    "sha256": (
+                        sha256 if index == 0 and sha256 is not None
+                        else hashlib.sha256(data).hexdigest()
+                    ),
+                    "alphaExpectation": (
+                        alpha if index == 0 and alpha is not None else expected_alpha
+                    ),
                 }
-            ]
-        }
+            )
+        manifest = {"assets": assets}
         (self.root / manifest_path).write_text(json.dumps(manifest), encoding="utf-8")
         return manifest_path
+
+    def read_manifest(self, manifest_path: Path) -> dict:
+        return json.loads((self.root / manifest_path).read_text(encoding="utf-8"))
+
+    def write_manifest(self, manifest_path: Path, manifest: object) -> None:
+        (self.root / manifest_path).write_text(json.dumps(manifest), encoding="utf-8")
 
     def test_manifest_rejects_hash_mismatch(self):
         manifest = self.make_pack(sha256="0" * 64)
@@ -157,9 +217,130 @@ class ValidateManifestTests(unittest.TestCase):
         self.assertIn("alpha mismatch", validate_manifest(self.root, manifest)[0])
 
     def test_manifest_accepts_complete_valid_png(self):
-        manifest = self.make_pack(alpha="opaque", png_channels=3)
+        manifest = self.make_pack()
 
         self.assertEqual([], validate_manifest(self.root, manifest))
+
+    def test_manifest_rejects_wrong_dimensions(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0]["width"] += 1
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertTrue(any("dimensions mismatch" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_missing_asset_file(self):
+        manifest_path = self.make_pack()
+        (self.root / REQUIRED_PATHS[0]).unlink()
+
+        self.assertTrue(any("cannot read asset" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_empty_inventory(self):
+        manifest_path = self.make_pack()
+        self.write_manifest(manifest_path, {"assets": []})
+
+        self.assertTrue(any("inventory" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_duplicate_asset_path(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][1]["path"] = manifest["assets"][0]["path"]
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertTrue(any("duplicate" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_omitted_asset(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"].pop()
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertTrue(any("missing required" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_extra_asset(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        extra_path = "Assets/Art/Meteora/extra.png"
+        data = make_png(2, 2, 4)
+        (self.root / extra_path).write_bytes(data)
+        manifest["assets"].append(
+            {
+                "path": extra_path,
+                "width": 2,
+                "height": 2,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "alphaExpectation": "transparent",
+            }
+        )
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertTrue(any("unexpected asset" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_wrong_asset_order(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0], manifest["assets"][1] = manifest["assets"][1], manifest["assets"][0]
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertTrue(any("exact order" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_symlinked_asset(self):
+        manifest_path = self.make_pack()
+        target = self.root / REQUIRED_PATHS[0]
+        data = target.read_bytes()
+        outside = self.root.parent / f"{self.root.name}-outside.png"
+        outside.write_bytes(data)
+        self.addCleanup(outside.unlink, missing_ok=True)
+        target.unlink()
+        target.symlink_to(outside)
+
+        self.assertTrue(any("symlink" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_traversal_path(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0]["path"] = "../outside.png"
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertTrue(any("inside repository root" in error for error in validate_manifest(self.root, manifest_path)))
+
+    def test_manifest_rejects_non_object_top_level_json(self):
+        manifest_path = self.make_pack()
+        self.write_manifest(manifest_path, [])
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("top-level" in error for error in errors))
+
+    def test_cli_returns_zero_for_valid_pack(self):
+        manifest_path = self.make_pack()
+        output = io.StringIO()
+
+        with contextlib.redirect_stdout(output):
+            result = main(["--root", str(self.root), "--manifest", str(manifest_path)])
+
+        self.assertEqual(0, result)
+        self.assertIn("validation passed", output.getvalue())
+
+    def test_cli_returns_one_and_lists_invalid_asset(self):
+        manifest_path = self.make_pack(sha256="0" * 64)
+        error_output = io.StringIO()
+
+        with contextlib.redirect_stderr(error_output):
+            result = main(["--root", str(self.root), "--manifest", str(manifest_path)])
+
+        self.assertEqual(1, result)
+        self.assertIn(REQUIRED_PATHS[0], error_output.getvalue())
+
+
+class WorkflowTests(unittest.TestCase):
+    def test_workflow_validates_main_and_has_timeout(self):
+        repo_root = Path(__file__).resolve().parents[3]
+        workflow = (repo_root / ".github/workflows/validate-meteora-art.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("      - main", workflow)
+        self.assertRegex(workflow, r"timeout-minutes:\s*\d+")
 
 
 if __name__ == "__main__":

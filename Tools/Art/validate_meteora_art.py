@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import stat
 import struct
 import sys
 import zlib
@@ -16,6 +17,25 @@ from pathlib import Path
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SUPPORTED_COLOR_TYPES = {2: 3, 6: 4}
 KNOWN_CRITICAL_CHUNKS = {b"IHDR", b"PLTE", b"IDAT", b"IEND"}
+MANIFEST_CONTRACT_VERSION = 1
+REQUIRED_ASSET_PATHS = (
+    "Assets/Art/Meteora/Characters/Kolo/kolo-normal-sheet.png",
+    "Assets/Art/Meteora/Characters/Kolo/kolo-heavy-sheet.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/clouds-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/meteora-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/meteora-mid.png",
+    "Assets/Art/Meteora/Backgrounds/Level01/cliffs-near.png",
+    "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
+    "Assets/Art/Meteora/Environment/wood-rope-bronze-atlas.png",
+    "Assets/Art/Meteora/Environment/interactables-atlas.png",
+    "Assets/Art/Meteora/Environment/water-honey-effects.png",
+    "Assets/Art/UI/Controls/touch-controls-atlas.png",
+)
+MAX_DIMENSION = 8192
+MAX_PIXELS = 32_000_000
+MAX_PNG_BYTES = 64 * 1024 * 1024
+MAX_DECODED_BYTES = 256 * 1024 * 1024
 
 
 class PngValidationError(ValueError):
@@ -86,6 +106,8 @@ def _read_ihdr(chunks: list[_Chunk]) -> tuple[int, int, int]:
     )
     if width == 0 or height == 0:
         raise PngValidationError("PNG dimensions must be positive")
+    if width > MAX_DIMENSION or height > MAX_DIMENSION or width * height > MAX_PIXELS:
+        raise PngValidationError("PNG dimensions exceed resource limit")
     if bit_depth != 8 or color_type not in SUPPORTED_COLOR_TYPES:
         raise PngValidationError("only 8-bit RGB/RGBA PNGs are supported")
     if compression != 0 or filtering != 0 or interlace != 0:
@@ -93,7 +115,7 @@ def _read_ihdr(chunks: list[_Chunk]) -> tuple[int, int, int]:
     return width, height, color_type
 
 
-def _inflate_idat(chunks: list[_Chunk]) -> bytes:
+def _inflate_idat(chunks: list[_Chunk], expected_size: int) -> bytes:
     idat_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"IDAT"]
     idat_parts = [chunks[index].data for index in idat_indexes]
     if not idat_parts:
@@ -103,23 +125,28 @@ def _inflate_idat(chunks: list[_Chunk]) -> bytes:
     compressed = b"".join(idat_parts)
     inflater = zlib.decompressobj()
     try:
-        decoded = inflater.decompress(compressed)
-        decoded += inflater.flush()
+        decoded = inflater.decompress(compressed, expected_size + 1)
     except zlib.error as error:
         raise PngValidationError(f"IDAT zlib decode failed: {error}") from error
+    if len(decoded) > expected_size:
+        raise PngValidationError("decoded scanlines exceed resource limit")
     if not inflater.eof or inflater.unconsumed_tail or inflater.unused_data:
         raise PngValidationError("IDAT stream is truncated or contains trailing data")
     return decoded
 
 
 def validate_png_bytes(data: bytes) -> PngInfo:
+    if len(data) > MAX_PNG_BYTES:
+        raise PngValidationError("PNG file size exceeds resource limit")
     chunks = _parse_chunks(data)
     width, height, color_type = _read_ihdr(chunks)
     iend_chunks = [chunk for chunk in chunks if chunk.kind == b"IEND"]
     if len(iend_chunks) != 1 or iend_chunks[0].data:
         raise PngValidationError("PNG must end with one empty IEND chunk")
-    decoded = _inflate_idat(chunks)
     expected_size = height * (1 + width * SUPPORTED_COLOR_TYPES[color_type])
+    if expected_size > MAX_DECODED_BYTES:
+        raise PngValidationError("decoded image size exceeds resource limit")
+    decoded = _inflate_idat(chunks, expected_size)
     if len(decoded) != expected_size:
         raise PngValidationError(
             f"decoded scanlines: {len(decoded)} != {expected_size} bytes"
@@ -135,17 +162,45 @@ def validate_png_bytes(data: bytes) -> PngInfo:
 
 
 def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
-    root = repo_root.resolve()
+    try:
+        root = repo_root.resolve(strict=True)
+    except OSError as error:
+        return [f"{repo_root}: cannot resolve repository root: {error}"]
     manifest_file = manifest_path if manifest_path.is_absolute() else root / manifest_path
     try:
         manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         return [f"{manifest_path}: cannot read manifest: {error}"]
 
+    if not isinstance(manifest, dict):
+        return [f"{manifest_path}: manifest top-level value must be an object"]
+
     errors: list[str] = []
     assets = manifest.get("assets")
     if not isinstance(assets, list):
         return [f"{manifest_path}: manifest assets must be a list"]
+
+    paths = [entry.get("path") if isinstance(entry, dict) else None for entry in assets]
+    if not assets:
+        errors.append("asset inventory must not be empty")
+    duplicate_paths = sorted(
+        {path for path in paths if isinstance(path, str) and paths.count(path) > 1}
+    )
+    if duplicate_paths:
+        errors.append(f"duplicate asset path(s): {', '.join(duplicate_paths)}")
+    missing_paths = [path for path in REQUIRED_ASSET_PATHS if path not in paths]
+    if missing_paths:
+        errors.append(f"missing required asset(s): {', '.join(missing_paths)}")
+    extra_paths = [
+        path for path in paths
+        if isinstance(path, str) and path not in REQUIRED_ASSET_PATHS
+    ]
+    if extra_paths:
+        errors.append(f"unexpected asset path(s): {', '.join(extra_paths)}")
+    if paths != list(REQUIRED_ASSET_PATHS):
+        errors.append(
+            f"asset paths must match contract v{MANIFEST_CONTRACT_VERSION} in exact order"
+        )
 
     for index, entry in enumerate(assets):
         if not isinstance(entry, dict):
@@ -156,10 +211,41 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         if asset_path.is_absolute() or ".." in asset_path.parts:
             errors.append(f"{label}: asset path must stay inside repository root")
             continue
+        candidate = root / asset_path
+        current = root
+        symlink_found = False
+        for part in asset_path.parts:
+            current /= part
+            if current.is_symlink():
+                symlink_found = True
+                break
+        if symlink_found:
+            errors.append(f"{label}: symlinked assets are not allowed")
+            continue
         try:
-            data = (root / asset_path).read_bytes()
+            resolved_asset = candidate.resolve(strict=True)
+            resolved_asset.relative_to(root)
         except OSError as error:
             errors.append(f"{label}: cannot read asset: {error}")
+            continue
+        except ValueError:
+            errors.append(f"{label}: asset path must stay inside repository root")
+            continue
+        try:
+            asset_stat = resolved_asset.stat()
+            if not stat.S_ISREG(asset_stat.st_mode):
+                errors.append(f"{label}: asset must be a regular file")
+                continue
+            if asset_stat.st_size > MAX_PNG_BYTES:
+                errors.append(f"{label}: PNG file size exceeds resource limit")
+                continue
+            with resolved_asset.open("rb") as asset_file:
+                data = asset_file.read(MAX_PNG_BYTES + 1)
+        except OSError as error:
+            errors.append(f"{label}: cannot read asset: {error}")
+            continue
+        if len(data) > MAX_PNG_BYTES:
+            errors.append(f"{label}: PNG file size exceeds resource limit")
             continue
         try:
             info = validate_png_bytes(data)
