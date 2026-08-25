@@ -134,13 +134,13 @@ Square production texture atlas with four equal non-overlapping material swatche
 - [x] **Step 2: Generate wood, rope, and bronze atlas**
 
 ```text
-Square transparent production atlas with clearly separated game-art pieces: weathered wooden plank surface, wooden beam end, straight rope segment, curved rope segment, pulley wheel, iron hook, bronze pressure-plate surface, and bronze bell surface. Realistic materials with consistent warm upper-left light, generous separation, no labels, text, characters, logo, watermark, or overlaps. Genuine transparent background outside pieces.
+Square transparent production atlas with clearly separated game-art pieces: weathered wooden plank surface, wooden beam end, straight rope segment, curved rope segment, pulley wheel, iron hook, bronze pressure-plate surface, and bronze hinge/axle. Realistic materials with consistent warm upper-left light, generous separation, no labels, text, characters, logo, watermark, or overlaps. Genuine transparent background outside pieces.
 ```
 
 - [x] **Step 3: Generate interactables atlas**
 
 ```text
-Square transparent side-view sprite atlas for one Meteora puzzle level. Exactly seven separated objects: pressure plate raised, pressure plate pressed, round pushable stone, hanging wooden platform with rope attachment, cracked breakable stone platform, glowing blue Heavy water source, bronze monastery finish bell, plus a small sesame collectible placed separately. Consistent scale language, realistic materials, readable mobile silhouettes, warm upper-left lighting. No labels, text, character, environment, logo, watermark, or overlaps. Genuine transparent background.
+Square transparent side-view sprite atlas for one Meteora puzzle level. Exactly eight separated objects: pressure plate raised, pressure plate pressed, round pushable stone, hanging wooden platform with rope attachment, cracked breakable stone platform, glowing blue Heavy water source, bronze monastery finish bell, plus a small sesame collectible placed separately. Consistent scale language, realistic materials, readable mobile silhouettes, warm upper-left lighting. No labels, text, character, environment, logo, watermark, or overlaps. Genuine transparent background.
 ```
 
 - [x] **Step 4: Generate water and honey effects atlas**
@@ -217,4 +217,4 @@ Commit manifest, README, and completed plan with message `docs: finalize Meteora
 
 - [x] **Step 6: Final branch review**
 
-Compare the feature branch to its base and confirm changes contain only the spec, plan, 12 PNGs, manifest, and art README. State explicitly that Unity import and device performance have not been run.
+Compare the feature branch to its base and confirm changes contain the original spec/plan, repair plan, 12 runtime PNGs, manifest, art README, permanent validator/tests/workflow, documentation previews, and Python package initializers. Confirm temporary CI workflows are absent from the final tree. State explicitly that Unity import and device performance have not been run.

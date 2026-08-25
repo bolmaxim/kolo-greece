@@ -55,6 +55,18 @@ def make_png(width: int, height: int, channels: int) -> bytes:
     )
 
 
+def make_rgba_png(width: int, height: int, alpha: int) -> bytes:
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    pixel = bytes((10, 20, 30, alpha))
+    scanlines = b"".join(b"\x00" + pixel * width for _ in range(height))
+    return (
+        PNG_SIGNATURE
+        + _chunk(b"IHDR", ihdr)
+        + _chunk(b"IDAT", zlib.compress(scanlines))
+        + _chunk(b"IEND", b"")
+    )
+
+
 class ValidatePngBytesTests(unittest.TestCase):
     def test_rejects_png_with_valid_ihdr_but_truncated_idat(self):
         data = make_png(width=2, height=2, channels=3)
@@ -153,6 +165,47 @@ class ValidatePngBytesTests(unittest.TestCase):
         with self.assertRaisesRegex(PngValidationError, "decoded scanlines|limit"):
             validate_png_bytes(data)
 
+    def test_rejects_plte_after_idat(self):
+        data = make_png(width=1, height=1, channels=3)
+        insertion = data.rfind(_chunk(b"IEND", b""))
+        malformed = data[:insertion] + _chunk(b"PLTE", b"\x00\x00\x00") + data[insertion:]
+
+        with self.assertRaisesRegex(PngValidationError, "PLTE.*before.*IDAT"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_duplicate_plte(self):
+        data = make_png(width=1, height=1, channels=3)
+        ihdr_end = len(PNG_SIGNATURE) + 12 + 13
+        palette = _chunk(b"PLTE", b"\x00\x00\x00")
+        malformed = data[:ihdr_end] + palette + palette + data[ihdr_end:]
+
+        with self.assertRaisesRegex(PngValidationError, "at most one PLTE"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_malformed_plte_length(self):
+        data = make_png(width=1, height=1, channels=3)
+        ihdr_end = len(PNG_SIGNATURE) + 12 + 13
+        malformed = data[:ihdr_end] + _chunk(b"PLTE", b"\x00\x00") + data[ihdr_end:]
+
+        with self.assertRaisesRegex(PngValidationError, "PLTE.*length"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_non_letter_chunk_type_byte(self):
+        data = make_png(width=1, height=1, channels=3)
+        ihdr_end = len(PNG_SIGNATURE) + 12 + 13
+        malformed = data[:ihdr_end] + _chunk(b"tE1t", b"") + data[ihdr_end:]
+
+        with self.assertRaisesRegex(PngValidationError, "chunk type.*letters"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_lowercase_reserved_chunk_type_byte(self):
+        data = make_png(width=1, height=1, channels=3)
+        ihdr_end = len(PNG_SIGNATURE) + 12 + 13
+        malformed = data[:ihdr_end] + _chunk(b"tExt", b"") + data[ihdr_end:]
+
+        with self.assertRaisesRegex(PngValidationError, "reserved.*uppercase"):
+            validate_png_bytes(malformed)
+
 
 class ValidateManifestTests(unittest.TestCase):
     def setUp(self):
@@ -215,6 +268,18 @@ class ValidateManifestTests(unittest.TestCase):
         manifest = self.make_pack(alpha="transparent", png_channels=3)
 
         self.assertIn("alpha mismatch", validate_manifest(self.root, manifest)[0])
+
+    def test_manifest_rejects_all_opaque_rgba_when_transparency_expected(self):
+        manifest_path = self.make_pack()
+        manifest = self.read_manifest(manifest_path)
+        opaque_rgba = make_rgba_png(width=2, height=2, alpha=255)
+        target = self.root / REQUIRED_PATHS[0]
+        target.write_bytes(opaque_rgba)
+        manifest["assets"][0]["sha256"] = hashlib.sha256(opaque_rgba).hexdigest()
+        self.write_manifest(manifest_path, manifest)
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("transparent pixels" in error for error in errors))
 
     def test_manifest_accepts_complete_valid_png(self):
         manifest = self.make_pack()

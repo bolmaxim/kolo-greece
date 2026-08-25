@@ -47,6 +47,7 @@ class PngInfo:
     width: int
     height: int
     color_type: int
+    has_transparent_pixels: bool
 
     @property
     def has_alpha(self) -> bool:
@@ -73,6 +74,12 @@ def _parse_chunks(data: bytes) -> list[_Chunk]:
         if chunk_end > len(data):
             raise PngValidationError("truncated PNG chunk data")
         kind = data[offset + 4 : offset + 8]
+        if not all(65 <= byte <= 90 or 97 <= byte <= 122 for byte in kind):
+            raise PngValidationError("PNG chunk type must contain only ASCII letters")
+        if kind[2] & 0x20:
+            raise PngValidationError(
+                "PNG chunk type reserved byte must be uppercase"
+            )
         payload = data[offset + 8 : offset + 8 + length]
         declared_crc = struct.unpack(">I", data[offset + 8 + length : chunk_end])[0]
         actual_crc = zlib.crc32(kind)
@@ -115,6 +122,22 @@ def _read_ihdr(chunks: list[_Chunk]) -> tuple[int, int, int]:
     return width, height, color_type
 
 
+def _validate_plte(chunks: list[_Chunk]) -> None:
+    plte_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"PLTE"]
+    if len(plte_indexes) > 1:
+        raise PngValidationError("PNG may contain at most one PLTE chunk")
+    if not plte_indexes:
+        return
+    idat_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"IDAT"]
+    if idat_indexes and plte_indexes[0] > idat_indexes[0]:
+        raise PngValidationError("PLTE must appear before the first IDAT chunk")
+    length = len(chunks[plte_indexes[0]].data)
+    if length < 3 or length > 768 or length % 3:
+        raise PngValidationError(
+            "PLTE length must be a positive multiple of 3 and at most 768 bytes"
+        )
+
+
 def _inflate_idat(chunks: list[_Chunk], expected_size: int) -> bytes:
     idat_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"IDAT"]
     idat_parts = [chunks[index].data for index in idat_indexes]
@@ -135,11 +158,61 @@ def _inflate_idat(chunks: list[_Chunk], expected_size: int) -> bytes:
     return decoded
 
 
+def _paeth_predictor(left: int, up: int, upper_left: int) -> int:
+    estimate = left + up - upper_left
+    left_distance = abs(estimate - left)
+    up_distance = abs(estimate - up)
+    upper_left_distance = abs(estimate - upper_left)
+    if left_distance <= up_distance and left_distance <= upper_left_distance:
+        return left
+    if up_distance <= upper_left_distance:
+        return up
+    return upper_left
+
+
+def _validate_and_unfilter_scanlines(
+    decoded: bytes, width: int, height: int, channels: int
+) -> bool:
+    row_size = width * channels
+    scanline_size = 1 + row_size
+    previous = bytearray(row_size)
+    has_transparent_pixels = False
+    for row_index in range(height):
+        start = row_index * scanline_size
+        filter_byte = decoded[start]
+        if filter_byte > 4:
+            raise PngValidationError(
+                f"invalid filter byte {filter_byte} on scanline {row_index}"
+            )
+        raw = decoded[start + 1 : start + scanline_size]
+        current = bytearray(row_size)
+        for index, value in enumerate(raw):
+            left = current[index - channels] if index >= channels else 0
+            up = previous[index]
+            upper_left = previous[index - channels] if index >= channels else 0
+            if filter_byte == 0:
+                predictor = 0
+            elif filter_byte == 1:
+                predictor = left
+            elif filter_byte == 2:
+                predictor = up
+            elif filter_byte == 3:
+                predictor = (left + up) // 2
+            else:
+                predictor = _paeth_predictor(left, up, upper_left)
+            current[index] = (value + predictor) & 0xFF
+        if channels == 4 and any(alpha < 255 for alpha in current[3::4]):
+            has_transparent_pixels = True
+        previous = current
+    return has_transparent_pixels
+
+
 def validate_png_bytes(data: bytes) -> PngInfo:
     if len(data) > MAX_PNG_BYTES:
         raise PngValidationError("PNG file size exceeds resource limit")
     chunks = _parse_chunks(data)
     width, height, color_type = _read_ihdr(chunks)
+    _validate_plte(chunks)
     iend_chunks = [chunk for chunk in chunks if chunk.kind == b"IEND"]
     if len(iend_chunks) != 1 or iend_chunks[0].data:
         raise PngValidationError("PNG must end with one empty IEND chunk")
@@ -151,14 +224,15 @@ def validate_png_bytes(data: bytes) -> PngInfo:
         raise PngValidationError(
             f"decoded scanlines: {len(decoded)} != {expected_size} bytes"
         )
-    scanline_size = 1 + width * SUPPORTED_COLOR_TYPES[color_type]
-    for row in range(height):
-        filter_byte = decoded[row * scanline_size]
-        if filter_byte > 4:
-            raise PngValidationError(
-                f"invalid filter byte {filter_byte} on scanline {row}"
-            )
-    return PngInfo(width=width, height=height, color_type=color_type)
+    has_transparent_pixels = _validate_and_unfilter_scanlines(
+        decoded, width, height, SUPPORTED_COLOR_TYPES[color_type]
+    )
+    return PngInfo(
+        width=width,
+        height=height,
+        color_type=color_type,
+        has_transparent_pixels=has_transparent_pixels,
+    )
 
 
 def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
@@ -268,6 +342,10 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         if actual_alpha != expected_alpha:
             errors.append(
                 f"{label}: alpha mismatch: {actual_alpha} != {expected_alpha}"
+            )
+        elif expected_alpha == "transparent" and not info.has_transparent_pixels:
+            errors.append(
+                f"{label}: RGBA image contains no transparent pixels"
             )
 
     return errors
