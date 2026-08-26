@@ -546,6 +546,7 @@ class WorkflowTests(unittest.TestCase):
             encoding="utf-8"
         )
 
+        self.assertIn("      - art/meteora-level-01-assets", workflow)
         self.assertIn("      - art/meteora-level-02-assets", workflow)
         self.assertIn("      - main", workflow)
         self.assertIn("  pull_request:", workflow)
@@ -554,6 +555,10 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(
             1,
             workflow.count("python3 -m unittest discover -s Tools/Art/tests -v"),
+        )
+        self.assertEqual(
+            1,
+            workflow.count("python3 Tools/Art/validate_meteora_art.py"),
         )
         self.assertIn(
             "python3 Tools/Art/validate_meteora_art.py\n"
