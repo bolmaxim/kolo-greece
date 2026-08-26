@@ -540,14 +540,41 @@ class ValidateManifestTests(unittest.TestCase):
 
 
 class WorkflowTests(unittest.TestCase):
-    def test_workflow_validates_main_and_has_timeout(self):
+    def test_workflow_validates_both_packs_once_and_keeps_ci_scope(self):
         repo_root = Path(__file__).resolve().parents[3]
         workflow = (repo_root / ".github/workflows/validate-meteora-art.yml").read_text(
             encoding="utf-8"
         )
 
+        self.assertIn("      - art/meteora-level-02-assets", workflow)
         self.assertIn("      - main", workflow)
+        self.assertIn("  pull_request:", workflow)
+        self.assertIn("  workflow_dispatch:", workflow)
         self.assertRegex(workflow, r"timeout-minutes:\s*\d+")
+        self.assertEqual(
+            1,
+            workflow.count("python3 -m unittest discover -s Tools/Art/tests -v"),
+        )
+        self.assertIn(
+            "python3 Tools/Art/validate_meteora_art.py\n"
+            "          --root .\n"
+            "          --manifest Assets/Art/Meteora/meteora-level-01-art-manifest.json\n"
+            "          --manifest Assets/Art/Meteora/meteora-level-02-art-manifest.json",
+            workflow,
+        )
+
+
+class ValidateRepositoryPacksTests(unittest.TestCase):
+    def test_level02_repository_pack_is_valid(self):
+        repo_root = Path(__file__).resolve().parents[3]
+
+        self.assertEqual(
+            [],
+            validate_manifest(
+                repo_root,
+                Path("Assets/Art/Meteora/meteora-level-02-art-manifest.json"),
+            ),
+        )
 
 
 if __name__ == "__main__":

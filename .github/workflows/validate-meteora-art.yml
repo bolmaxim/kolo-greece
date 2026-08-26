@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - art/meteora-level-01-assets
+      - art/meteora-level-02-assets
       - main
   pull_request:
   workflow_dispatch:
@@ -27,3 +28,4 @@ jobs:
           python3 Tools/Art/validate_meteora_art.py
           --root .
           --manifest Assets/Art/Meteora/meteora-level-01-art-manifest.json
+          --manifest Assets/Art/Meteora/meteora-level-02-art-manifest.json

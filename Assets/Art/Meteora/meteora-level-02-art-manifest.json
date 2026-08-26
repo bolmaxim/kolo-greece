@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "level": "Meteora/Level02",
+  "generatedAt": "2026-08-25",
+  "unityValidated": false,
+  "assets": [
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level02/sky-base.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "3cc8dcd539183dacf0d4c057ac720c99bb48d3385cb8312d2ed752c36aff291b",
+      "alphaExpectation": "opaque",
+      "role": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level02/clouds-depth.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "863f67770e88b636074bbce454c51378329a39c57331eb0700a48492442d3a45",
+      "alphaExpectation": "transparent",
+      "role": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level02/meteora-far.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "8a78710ca464c983d3d32178b846830054ddcf88bfbd26ee9b42946d333d92b5",
+      "alphaExpectation": "transparent",
+      "role": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level02/meteora-mid-gorge.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "fcbcd615ef5970180f93c49c266036b8a6d24317d314e97d7c3c2413ed9ff336",
+      "alphaExpectation": "transparent",
+      "role": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Backgrounds/Level02/cliffs-near-station.png",
+      "width": 1672,
+      "height": 941,
+      "sha256": "2a9389fce111acf4a586e1d059d7e44ea90692103e859ba0027a0b2d9690e0c9",
+      "alphaExpectation": "transparent",
+      "role": "parallax"
+    },
+    {
+      "path": "Assets/Art/Meteora/Environment/Level02/cargo-crane-atlas.png",
+      "width": 1448,
+      "height": 1086,
+      "sha256": "5a614dcef6d92a25a657a214eb85ae584124716c62a69af29604b831825a62ca",
+      "alphaExpectation": "transparent",
+      "role": "atlas"
+    },
+    {
+      "path": "Assets/Art/Meteora/Environment/Level02/cliff-route-atlas.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "94a3a8735f2cfe527354ef45d4891691ef375e9940da3a00728e69ca0e7b3e74",
+      "alphaExpectation": "transparent",
+      "role": "atlas"
+    }
+  ]
+}
