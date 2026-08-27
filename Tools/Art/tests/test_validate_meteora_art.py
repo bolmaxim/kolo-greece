@@ -81,7 +81,93 @@ def make_rgba_png(width: int, height: int, alpha: int) -> bytes:
     )
 
 
+def make_rgb_png_with_trns(
+    *,
+    pixel: tuple[int, int, int] = (10, 20, 30),
+    transparent_color: tuple[int, int, int] = (10, 20, 30),
+) -> bytes:
+    ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    transparency = struct.pack(">HHH", *transparent_color)
+    scanline = b"\x00" + bytes(pixel)
+    return (
+        PNG_SIGNATURE
+        + _chunk(b"IHDR", ihdr)
+        + _chunk(b"tRNS", transparency)
+        + _chunk(b"IDAT", zlib.compress(scanline))
+        + _chunk(b"IEND", b"")
+    )
+
+
 class ValidatePngBytesTests(unittest.TestCase):
+    def test_rejects_png_that_exceeds_chunk_count_limit(self):
+        ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+        data = (
+            PNG_SIGNATURE
+            + _chunk(b"IHDR", ihdr)
+            + _chunk(b"tEXt", b"") * 4_096
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "chunk count.*limit"):
+            validate_png_bytes(data)
+
+    def test_rgb_trns_marks_matching_pixel_transparent(self):
+        info = validate_png_bytes(make_rgb_png_with_trns())
+
+        self.assertEqual(2, info.color_type)
+        self.assertTrue(info.has_transparent_pixels)
+
+    def test_rgb_trns_key_absent_from_pixels_is_effectively_opaque(self):
+        info = validate_png_bytes(
+            make_rgb_png_with_trns(
+                pixel=(1, 2, 3), transparent_color=(10, 20, 30)
+            )
+        )
+
+        self.assertEqual(2, info.color_type)
+        self.assertFalse(info.has_transparent_pixels)
+
+    def test_rejects_rgb_trns_with_wrong_length(self):
+        data = make_rgb_png_with_trns().replace(
+            _chunk(b"tRNS", struct.pack(">HHH", 10, 20, 30)),
+            _chunk(b"tRNS", b"\x00" * 5),
+        )
+
+        with self.assertRaisesRegex(PngValidationError, "tRNS.*6 bytes"):
+            validate_png_bytes(data)
+
+    def test_rejects_duplicate_trns(self):
+        data = make_rgb_png_with_trns()
+        trns = _chunk(b"tRNS", struct.pack(">HHH", 10, 20, 30))
+        insertion = data.index(trns)
+        malformed = data[:insertion] + trns + data[insertion:]
+
+        with self.assertRaisesRegex(PngValidationError, "at most one tRNS"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_trns_after_idat(self):
+        data = make_rgb_png_with_trns()
+        trns = _chunk(b"tRNS", struct.pack(">HHH", 10, 20, 30))
+        without_trns = data.replace(trns, b"")
+        insertion = without_trns.rfind(_chunk(b"IEND", b""))
+        malformed = without_trns[:insertion] + trns + without_trns[insertion:]
+
+        with self.assertRaisesRegex(PngValidationError, "tRNS.*before.*IDAT"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_trns_for_rgba(self):
+        data = make_rgba_png(width=1, height=1, alpha=255)
+        ihdr_end = len(PNG_SIGNATURE) + 12 + 13
+        malformed = data[:ihdr_end] + _chunk(b"tRNS", b"\x00" * 6) + data[ihdr_end:]
+
+        with self.assertRaisesRegex(PngValidationError, "tRNS.*color type 6"):
+            validate_png_bytes(malformed)
+
+    def test_rejects_rgb_trns_sample_above_bit_depth(self):
+        data = make_rgb_png_with_trns(transparent_color=(256, 20, 30))
+
+        with self.assertRaisesRegex(PngValidationError, "tRNS.*8-bit"):
+            validate_png_bytes(data)
+
     def test_rejects_png_with_valid_ihdr_but_truncated_idat(self):
         data = make_png(width=2, height=2, channels=3)
         corrupt = data[:-20]
@@ -282,6 +368,7 @@ class ValidateManifestTests(unittest.TestCase):
                     "width": 2,
                     "height": 2,
                     "sha256": hashlib.sha256(data).hexdigest(),
+                    "colorType": 2 if channels == 3 else 6,
                     "alphaExpectation": "opaque" if index == 0 else "transparent",
                 }
             )
@@ -328,6 +415,62 @@ class ValidateManifestTests(unittest.TestCase):
 
     def test_level02_manifest_accepts_valid_seven_file_pack(self):
         manifest_path = self.make_level02_pack()
+
+        self.assertEqual([], validate_manifest(self.root, manifest_path))
+
+    def test_level02_manifest_requires_color_type(self):
+        manifest_path = self.make_level02_pack()
+        manifest = self.read_manifest(manifest_path)
+        del manifest["assets"][0]["colorType"]
+        self.write_manifest(manifest_path, manifest)
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("colorType is required" in error for error in errors))
+
+    def test_level02_manifest_rejects_wrong_color_type(self):
+        manifest_path = self.make_level02_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0]["colorType"] = 6
+        self.write_manifest(manifest_path, manifest)
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("colorType mismatch" in error for error in errors))
+
+    def test_level02_manifest_rejects_non_integer_color_type(self):
+        manifest_path = self.make_level02_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0]["colorType"] = "2"
+        self.write_manifest(manifest_path, manifest)
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("colorType must be an integer" in error for error in errors))
+
+    def test_rgb_trns_fails_opaque_manifest_expectation(self):
+        manifest_path = self.make_pack(alpha="opaque", png_channels=3)
+        manifest = self.read_manifest(manifest_path)
+        transparent_rgb = make_rgb_png_with_trns()
+        target = self.root / REQUIRED_PATHS[0]
+        target.write_bytes(transparent_rgb)
+        manifest["assets"][0]["sha256"] = hashlib.sha256(transparent_rgb).hexdigest()
+        manifest["assets"][0]["width"] = 1
+        manifest["assets"][0]["height"] = 1
+        self.write_manifest(manifest_path, manifest)
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("alpha mismatch" in error for error in errors))
+
+    def test_rgb_trns_with_unused_key_satisfies_opaque_manifest_expectation(self):
+        manifest_path = self.make_pack(alpha="opaque", png_channels=3)
+        manifest = self.read_manifest(manifest_path)
+        opaque_rgb = make_rgb_png_with_trns(
+            pixel=(1, 2, 3), transparent_color=(10, 20, 30)
+        )
+        target = self.root / REQUIRED_PATHS[0]
+        target.write_bytes(opaque_rgb)
+        manifest["assets"][0]["sha256"] = hashlib.sha256(opaque_rgb).hexdigest()
+        manifest["assets"][0]["width"] = 1
+        manifest["assets"][0]["height"] = 1
+        self.write_manifest(manifest_path, manifest)
 
         self.assertEqual([], validate_manifest(self.root, manifest_path))
 
@@ -570,6 +713,16 @@ class WorkflowTests(unittest.TestCase):
 
 
 class ValidateRepositoryPacksTests(unittest.TestCase):
+    def test_level02_repository_manifest_declares_png_color_types(self):
+        repo_root = Path(__file__).resolve().parents[3]
+        manifest = json.loads(
+            (repo_root / "Assets/Art/Meteora/meteora-level-02-art-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual([2, 6, 6, 6, 6, 6, 6], [entry.get("colorType") for entry in manifest["assets"]])
+
     def test_level02_repository_pack_is_valid(self):
         repo_root = Path(__file__).resolve().parents[3]
 

@@ -31,6 +31,10 @@ MAX_DIMENSION = 8192
 MAX_PIXELS = 32_000_000
 MAX_PNG_BYTES = 64 * 1024 * 1024
 MAX_DECODED_BYTES = 256 * 1024 * 1024
+# Generated PNGs normally use only a handful of chunks; this leaves ample
+# headroom while bounding per-chunk object amplification.
+MAX_PNG_CHUNKS = 4_096
+COLOR_TYPE_REQUIRED_MANIFESTS = {"meteora-level-02-art-manifest.json"}
 
 
 class PngValidationError(ValueError):
@@ -42,6 +46,7 @@ class PngInfo:
     width: int
     height: int
     color_type: int
+    has_transparency_key: bool
     has_transparent_pixels: bool
 
     @property
@@ -62,6 +67,10 @@ def _parse_chunks(data: bytes) -> list[_Chunk]:
     chunks: list[_Chunk] = []
     offset = len(PNG_SIGNATURE)
     while offset < len(data):
+        if len(chunks) >= MAX_PNG_CHUNKS:
+            raise PngValidationError(
+                f"PNG chunk count exceeds resource limit ({MAX_PNG_CHUNKS})"
+            )
         if len(data) - offset < 12:
             raise PngValidationError("truncated PNG chunk")
         length = struct.unpack(">I", data[offset : offset + 4])[0]
@@ -133,6 +142,32 @@ def _validate_plte(chunks: list[_Chunk]) -> None:
         )
 
 
+def _read_trns(chunks: list[_Chunk], color_type: int) -> tuple[int, int, int] | None:
+    trns_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"tRNS"]
+    if len(trns_indexes) > 1:
+        raise PngValidationError("PNG may contain at most one tRNS chunk")
+    if not trns_indexes:
+        return None
+
+    trns_index = trns_indexes[0]
+    idat_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"IDAT"]
+    if idat_indexes and trns_index > idat_indexes[0]:
+        raise PngValidationError("tRNS must appear before the first IDAT chunk")
+    plte_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"PLTE"]
+    if plte_indexes and trns_index < plte_indexes[0]:
+        raise PngValidationError("tRNS must appear after PLTE")
+    if color_type == 6:
+        raise PngValidationError("tRNS is not allowed for color type 6")
+
+    payload = chunks[trns_index].data
+    if len(payload) != 6:
+        raise PngValidationError("tRNS for RGB must contain exactly 6 bytes")
+    transparent_rgb = struct.unpack(">HHH", payload)
+    if any(sample > 255 for sample in transparent_rgb):
+        raise PngValidationError("tRNS sample exceeds 8-bit color depth")
+    return transparent_rgb
+
+
 def _inflate_idat(chunks: list[_Chunk], expected_size: int) -> bytes:
     idat_indexes = [index for index, chunk in enumerate(chunks) if chunk.kind == b"IDAT"]
     idat_parts = [chunks[index].data for index in idat_indexes]
@@ -166,7 +201,11 @@ def _paeth_predictor(left: int, up: int, upper_left: int) -> int:
 
 
 def _validate_and_unfilter_scanlines(
-    decoded: bytes, width: int, height: int, channels: int
+    decoded: bytes,
+    width: int,
+    height: int,
+    channels: int,
+    transparent_rgb: tuple[int, int, int] | None,
 ) -> bool:
     row_size = width * channels
     scanline_size = 1 + row_size
@@ -198,6 +237,11 @@ def _validate_and_unfilter_scanlines(
             current[index] = (value + predictor) & 0xFF
         if channels == 4 and any(alpha < 255 for alpha in current[3::4]):
             has_transparent_pixels = True
+        elif transparent_rgb is not None and any(
+            tuple(current[index : index + 3]) == transparent_rgb
+            for index in range(0, len(current), 3)
+        ):
+            has_transparent_pixels = True
         previous = current
     return has_transparent_pixels
 
@@ -208,6 +252,7 @@ def validate_png_bytes(data: bytes) -> PngInfo:
     chunks = _parse_chunks(data)
     width, height, color_type = _read_ihdr(chunks)
     _validate_plte(chunks)
+    transparent_rgb = _read_trns(chunks, color_type)
     iend_chunks = [chunk for chunk in chunks if chunk.kind == b"IEND"]
     if len(iend_chunks) != 1 or iend_chunks[0].data:
         raise PngValidationError("PNG must end with one empty IEND chunk")
@@ -220,12 +265,17 @@ def validate_png_bytes(data: bytes) -> PngInfo:
             f"decoded scanlines: {len(decoded)} != {expected_size} bytes"
         )
     has_transparent_pixels = _validate_and_unfilter_scanlines(
-        decoded, width, height, SUPPORTED_COLOR_TYPES[color_type]
+        decoded,
+        width,
+        height,
+        SUPPORTED_COLOR_TYPES[color_type],
+        transparent_rgb,
     )
     return PngInfo(
         width=width,
         height=height,
         color_type=color_type,
+        has_transparency_key=transparent_rgb is not None,
         has_transparent_pixels=has_transparent_pixels,
     )
 
@@ -250,6 +300,7 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         return [f"{manifest_path}: manifest top-level value must be an object"]
 
     errors: list[str] = []
+    requires_color_type = manifest_path.name in COLOR_TYPE_REQUIRED_MANIFESTS
     assets = manifest.get("assets")
     if not isinstance(assets, list):
         return [f"{manifest_path}: manifest assets must be a list"]
@@ -281,6 +332,15 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
             errors.append(f"asset[{index}]: manifest entry must be an object")
             continue
         label = str(entry.get("path", f"asset[{index}]"))
+        declared_color_type = entry.get("colorType")
+        valid_declared_color_type = True
+        if requires_color_type:
+            if "colorType" not in entry:
+                errors.append(f"{label}: colorType is required")
+                valid_declared_color_type = False
+            elif type(declared_color_type) is not int:
+                errors.append(f"{label}: colorType must be an integer")
+                valid_declared_color_type = False
         asset_path = Path(label)
         if asset_path.is_absolute() or ".." in asset_path.parts:
             errors.append(f"{label}: asset path must stay inside repository root")
@@ -337,15 +397,24 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
                 f"{label}: dimensions mismatch: {info.width}x{info.height} != "
                 f"{entry.get('width')}x{entry.get('height')}"
             )
-        expected_alpha = entry.get("alphaExpectation")
-        actual_alpha = "transparent" if info.has_alpha else "opaque"
-        if actual_alpha != expected_alpha:
+        if (
+            requires_color_type
+            and valid_declared_color_type
+            and info.color_type != declared_color_type
+        ):
             errors.append(
-                f"{label}: alpha mismatch: {actual_alpha} != {expected_alpha}"
+                f"{label}: colorType mismatch: {info.color_type} != {declared_color_type}"
             )
-        elif expected_alpha == "transparent" and not info.has_transparent_pixels:
+        expected_alpha = entry.get("alphaExpectation")
+        actual_alpha = "transparent" if info.has_transparent_pixels else "opaque"
+        if actual_alpha != expected_alpha:
+            detail = (
+                " (image contains no transparent pixels)"
+                if expected_alpha == "transparent"
+                else ""
+            )
             errors.append(
-                f"{label}: RGBA image contains no transparent pixels"
+                f"{label}: alpha mismatch: {actual_alpha} != {expected_alpha}{detail}"
             )
 
     return errors
