@@ -34,7 +34,10 @@ MAX_DECODED_BYTES = 256 * 1024 * 1024
 # Generated PNGs normally use only a handful of chunks; this leaves ample
 # headroom while bounding per-chunk object amplification.
 MAX_PNG_CHUNKS = 4_096
-COLOR_TYPE_REQUIRED_MANIFESTS = {"meteora-level-02-art-manifest.json"}
+COLOR_TYPE_REQUIRED_MANIFESTS = {
+    "meteora-level-02-art-manifest.json",
+    "meteora-level-03-art-manifest.json",
+}
 
 
 class PngValidationError(ValueError):

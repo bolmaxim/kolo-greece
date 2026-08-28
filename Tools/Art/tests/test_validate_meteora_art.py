@@ -45,6 +45,15 @@ LEVEL02_REQUIRED_PATHS = [
     "Assets/Art/Meteora/Environment/Level02/cargo-crane-atlas.png",
     "Assets/Art/Meteora/Environment/Level02/cliff-route-atlas.png",
 ]
+LEVEL03_REQUIRED_PATHS = [
+    "Assets/Art/Meteora/Backgrounds/Level03/sky-wind-base.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/cloud-streams.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/meteora-wind-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/meteora-wind-mid.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/cliffs-wind-near.png",
+    "Assets/Art/Meteora/Environment/Level03/windmill-sail-atlas.png",
+    "Assets/Art/Meteora/Environment/Level03/wind-bridge-chase-atlas.png",
+]
 OPAQUE_PATHS = {
     "Assets/Art/Meteora/Backgrounds/Level01/sky-base.png",
     "Assets/Art/Meteora/Environment/rock-surfaces-atlas.png",
@@ -377,6 +386,30 @@ class ValidateManifestTests(unittest.TestCase):
         )
         return manifest_path
 
+    def make_level03_pack(self) -> Path:
+        manifest_path = Path("Assets/Art/Meteora/meteora-level-03-art-manifest.json")
+        assets = []
+        for index, path_string in enumerate(LEVEL03_REQUIRED_PATHS):
+            channels = 3 if index == 0 else 4
+            data = make_png(width=2, height=2, channels=channels)
+            target = self.root / path_string
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            assets.append(
+                {
+                    "path": path_string,
+                    "width": 2,
+                    "height": 2,
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "colorType": 2 if channels == 3 else 6,
+                    "alphaExpectation": "opaque" if index == 0 else "transparent",
+                }
+            )
+        (self.root / manifest_path).write_text(
+            json.dumps({"assets": assets}), encoding="utf-8"
+        )
+        return manifest_path
+
     def read_manifest(self, manifest_path: Path) -> dict:
         return json.loads((self.root / manifest_path).read_text(encoding="utf-8"))
 
@@ -403,6 +436,16 @@ class ValidateManifestTests(unittest.TestCase):
             required_paths_for(Path("meteora-level-02-art-manifest.json")),
         )
 
+    def test_level03_filename_selects_exact_ordered_paths(self):
+        self.assertIsNotNone(required_paths_for)
+        if required_paths_for is None:
+            return
+
+        self.assertEqual(
+            tuple(LEVEL03_REQUIRED_PATHS),
+            required_paths_for(Path("meteora-level-03-art-manifest.json")),
+        )
+
     def test_unknown_manifest_contract_is_only_error(self):
         manifest_path = Path("Assets/Art/Meteora/unknown.json")
         (self.root / manifest_path).parent.mkdir(parents=True, exist_ok=True)
@@ -418,8 +461,27 @@ class ValidateManifestTests(unittest.TestCase):
 
         self.assertEqual([], validate_manifest(self.root, manifest_path))
 
+    def test_level03_manifest_accepts_valid_seven_file_pack(self):
+        manifest_path = self.make_level03_pack()
+        manifest = self.read_manifest(manifest_path)
+
+        self.assertEqual(
+            [2, 6, 6, 6, 6, 6, 6],
+            [entry["colorType"] for entry in manifest["assets"]],
+        )
+        self.assertEqual([], validate_manifest(self.root, manifest_path))
+
     def test_level02_manifest_requires_color_type(self):
         manifest_path = self.make_level02_pack()
+        manifest = self.read_manifest(manifest_path)
+        del manifest["assets"][0]["colorType"]
+        self.write_manifest(manifest_path, manifest)
+
+        errors = validate_manifest(self.root, manifest_path)
+        self.assertTrue(any("colorType is required" in error for error in errors))
+
+    def test_level03_manifest_requires_color_type(self):
+        manifest_path = self.make_level03_pack()
         manifest = self.read_manifest(manifest_path)
         del manifest["assets"][0]["colorType"]
         self.write_manifest(manifest_path, manifest)
@@ -476,6 +538,17 @@ class ValidateManifestTests(unittest.TestCase):
 
     def test_level02_manifest_rejects_valid_pack_when_paths_are_reordered(self):
         manifest_path = self.make_level02_pack()
+        manifest = self.read_manifest(manifest_path)
+        manifest["assets"][0], manifest["assets"][1] = manifest["assets"][1], manifest["assets"][0]
+        self.write_manifest(manifest_path, manifest)
+
+        self.assertEqual(
+            ["asset paths must match contract v1 in exact order"],
+            validate_manifest(self.root, manifest_path),
+        )
+
+    def test_level03_manifest_rejects_valid_pack_when_paths_are_reordered(self):
+        manifest_path = self.make_level03_pack()
         manifest = self.read_manifest(manifest_path)
         manifest["assets"][0], manifest["assets"][1] = manifest["assets"][1], manifest["assets"][0]
         self.write_manifest(manifest_path, manifest)

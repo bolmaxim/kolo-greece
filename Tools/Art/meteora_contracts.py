@@ -28,10 +28,20 @@ LEVEL02_REQUIRED_ASSET_PATHS = (
     "Assets/Art/Meteora/Environment/Level02/cargo-crane-atlas.png",
     "Assets/Art/Meteora/Environment/Level02/cliff-route-atlas.png",
 )
+LEVEL03_REQUIRED_ASSET_PATHS = (
+    "Assets/Art/Meteora/Backgrounds/Level03/sky-wind-base.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/cloud-streams.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/meteora-wind-far.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/meteora-wind-mid.png",
+    "Assets/Art/Meteora/Backgrounds/Level03/cliffs-wind-near.png",
+    "Assets/Art/Meteora/Environment/Level03/windmill-sail-atlas.png",
+    "Assets/Art/Meteora/Environment/Level03/wind-bridge-chase-atlas.png",
+)
 
 MANIFEST_CONTRACTS = {
     "meteora-level-01-art-manifest.json": LEVEL01_REQUIRED_ASSET_PATHS,
     "meteora-level-02-art-manifest.json": LEVEL02_REQUIRED_ASSET_PATHS,
+    "meteora-level-03-art-manifest.json": LEVEL03_REQUIRED_ASSET_PATHS,
 }
 
 
